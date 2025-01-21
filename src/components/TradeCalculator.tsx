@@ -168,43 +168,44 @@ const TradeCalculator: React.FC<TradeCalculatorProps> = ({
       <div className="grid grid-cols-2 gap-4">
         <div>
           <h2 className="text-xl mb-4">오늘의 매수</h2>
-          <div className="bg-gray-700 p-4 rounded">
-            <h3 className="text-lg mb-2">목표 매수가</h3>
-            <p className="text-2xl font-bold text-red-400">
-              ${calculation.targetPrice.toFixed(2)}
-            </p>
-          </div>
-          <div className="bg-gray-700 p-4 rounded">
-            <h3 className="text-lg mb-2">매수 수량</h3>
-            <p className="text-2xl font-bold text-red-400">
-              {calculation.buyAmount}주
-            </p>
+          <div className="bg-gray-700 p-4 rounded flex justify-around">
+            <div className="flex flex-col items-center mx-2 mb-4">
+              <h3 className="text-lg mb-2">매수가</h3>
+              <p className="text-xl font-bold text-red-400">
+                ${calculation.targetPrice.toFixed(2)}
+              </p>
+            </div>
+            <div className="flex flex-col items-center mx-2 mb-4">
+              <h3 className="text-lg mb-2">수량</h3>
+              <p className="text-xl font-bold text-red-400">
+                {calculation.buyAmount}주
+              </p>
+            </div>
           </div>
         </div>
         <div>
           <h2 className="text-xl mb-4">오늘의 MOC 매도</h2>
-          <div className="bg-gray-700 p-4 rounded flex justify-between">
-            <div>
-              <h3 className="text-lg mb-2">목표 매도가</h3>
-              <p className="text-2xl font-bold text-blue-400">
+          <div className="bg-gray-700 p-4 rounded flex flex-wrap justify-around">
+            <div className="flex flex-col items-center mx-2 mb-4">
+              <h3 className="text-lg mb-2">매도가</h3>
+              <p className="text-xl font-bold text-blue-400">
                 ${calculation.targetPrice.toFixed(2)}
               </p>
             </div>
-            <div>
-              <h3 className="text-lg mb-2">매도 수량</h3>
-              <p className="text-2xl font-bold text-blue-400">
+            <div className="flex flex-col items-center mx-2 mb-4">
+              <h3 className="text-lg mb-2">수량</h3>
+              <p className="text-xl font-bold text-blue-400">
                 {calculation.buyAmount}주
               </p>
             </div>
-            <div>
-              <h3 className="text-lg mb-2">예약 기간</h3>
-              <p className="text-2xl font-bold text-blue-400">
+            <div className="flex flex-col items-center mx-2 mb-4">
+              <h3 className="text-lg mb-2">기간</h3>
+              <p className="text-xl font-bold text-blue-400">
+                {"~"}
                 {reservationEndDate.toLocaleDateString("ko-KR", {
-                  year: "2-digit",
                   month: "2-digit",
                   day: "2-digit",
-                })}{" "}
-                까지
+                })}
               </p>
             </div>
           </div>
