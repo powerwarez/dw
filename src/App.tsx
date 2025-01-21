@@ -5,7 +5,7 @@ import {
   Routes,
   Navigate,
 } from "react-router-dom";
-import supabaseAuth from "./utils/supabaseAuth";
+import supabase from "./utils/supabase";
 import Login from "./pages/Login";
 import MainPage from "./pages/MainPage";
 import { Session } from "@supabase/supabase-js";
@@ -14,7 +14,7 @@ const App: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
 
   useEffect(() => {
-    const { data: authListener } = supabaseAuth.auth.onAuthStateChange(
+    const { data: authListener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setSession(session);
       }

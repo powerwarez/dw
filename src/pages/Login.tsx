@@ -1,9 +1,9 @@
 import React from "react";
-import supabaseAuth from "../utils/supabaseAuth";
+import supabase from "../utils/supabase";
 
 const Login: React.FC = () => {
   const handleLogin = async () => {
-    const { error } = await supabaseAuth.auth.signInWithOAuth({
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: "kakao",
     });
 
@@ -13,8 +13,8 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="flex items-center justify-center h-screen bg-gray-900 text-white">
-      <div className="text-center">
+    <div className="flex items-center justify-center min-h-screen bg-gray-900 text-white">
+      <div className="text-center p-8 bg-gray-800 rounded-lg shadow-lg">
         <h1 className="text-3xl mb-4">Login</h1>
         <button
           onClick={handleLogin}
