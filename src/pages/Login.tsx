@@ -9,7 +9,7 @@ const Login: React.FC = () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "kakao",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `https://jfjurlkdxlcudyuxkzzb.supabase.co/auth/v1/callback`,
       },
     });
 
@@ -25,7 +25,7 @@ const Login: React.FC = () => {
     <div className="w-full min-h-screen bg-gray-900">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-center min-h-screen">
-          <div className="w-full max-w-md text-center p-8 bg-gray-800 rounded-lg shadow-lg text-white">
+          <div className="w-full text-center p-8 bg-gray-800 rounded-lg shadow-lg text-white">
             <h1 className="text-3xl mb-4">동파법 로그인</h1>
             <button
               onClick={handleLogin}
