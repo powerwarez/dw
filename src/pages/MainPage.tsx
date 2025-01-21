@@ -4,14 +4,9 @@ import InvestmentSettings from "../components/InvestmentSettings";
 import TradeHistory from "../components/TradeHistory";
 import { FaBars } from "react-icons/fa";
 import { calculateMode } from "../components/ModeCalculator";
-import { createClient } from "@supabase/supabase-js";
+import supabase from "../utils/supabase";
 import { saveSettings, loadSettings } from "../utils/supabase";
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
-const supabaseKey = import.meta.env.VITE_SUPABASE_KEY || "";
-const supabase = createClient(supabaseUrl, supabaseKey);
-
-const userId = "your-user-id"; // 사용자 식별자
+import { Session } from "@supabase/supabase-js";
 
 interface Trade {
   date: string;
@@ -19,11 +14,11 @@ interface Trade {
   price: number;
 }
 
-const MainPage: React.FC<{ session: any }> = ({ session }) => {
+const MainPage: React.FC<{ session: Session }> = ({ session }) => {
   const [showSidebar, setShowSidebar] = useState(false);
   const [settings, setSettings] = useState({
     initialInvestment: 75000,
-    startDate: "",
+    startDate: new Date().toISOString().split("T")[0],
     seedDivision: 7,
     safeBuyPercent: 3,
     safeSellPercent: 0.2,
@@ -38,10 +33,8 @@ const MainPage: React.FC<{ session: any }> = ({ session }) => {
     withdrawalAmount: 0,
   });
 
-  const [trades, setTrades] = useState<Trade[]>([]);
-  const [currentSeed, setCurrentSeed] = useState<number>(
-    settings.initialInvestment
-  );
+  const [trades] = useState<Trade[]>([]);
+  const [currentSeed] = useState<number>(settings.initialInvestment);
   const [mode, setMode] = useState<"safe" | "aggressive">("safe");
 
   const [calculation, setCalculation] = useState({
@@ -54,9 +47,12 @@ const MainPage: React.FC<{ session: any }> = ({ session }) => {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const loadedSettings = await loadSettings(userId);
+        const loadedSettings = await loadSettings(session.user.id);
         if (loadedSettings) {
-          setSettings(loadedSettings);
+          setSettings((prevSettings) => ({
+            ...prevSettings,
+            ...loadedSettings,
+          }));
         }
       } catch (error) {
         console.error("Failed to load settings:", error);
@@ -64,7 +60,7 @@ const MainPage: React.FC<{ session: any }> = ({ session }) => {
     };
 
     fetchSettings();
-  }, []);
+  }, [session.user.id]);
 
   const handleSettingsChange = (field: string, value: number | string) => {
     setSettings((prevSettings) => ({
@@ -75,7 +71,7 @@ const MainPage: React.FC<{ session: any }> = ({ session }) => {
 
   const handleSaveSettings = async () => {
     try {
-      await saveSettings(userId, settings);
+      await saveSettings(session.user.id, settings);
       console.log("Settings saved successfully");
     } catch (error) {
       console.error("Failed to save settings:", error);

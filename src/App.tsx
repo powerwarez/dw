@@ -8,13 +8,14 @@ import {
 import supabaseAuth from "./utils/supabaseAuth";
 import Login from "./pages/Login";
 import MainPage from "./pages/MainPage";
+import { Session } from "@supabase/supabase-js";
 
 const App: React.FC = () => {
-  const [session, setSession] = useState(null);
+  const [session, setSession] = useState<Session | null>(null);
 
   useEffect(() => {
     const { data: authListener } = supabaseAuth.auth.onAuthStateChange(
-      (event, session) => {
+      (_event, session) => {
         setSession(session);
       }
     );
