@@ -4,6 +4,11 @@ import InvestmentSettings from "./components/InvestmentSettings";
 import TradeHistory from "./components/TradeHistory";
 import { FaBars } from "react-icons/fa";
 import { calculateMode } from "./components/ModeCalculator";
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
+const supabaseKey = import.meta.env.VITE_SUPABASE_KEY || "";
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 interface Trade {
   date: string;
@@ -39,7 +44,8 @@ const App: React.FC = () => {
   const [calculation, setCalculation] = useState({
     targetPrice: 0,
     buyAmount: 0,
-    reservationPeriod: settings.safeMaxDays,
+    reservationPeriod:
+      mode === "safe" ? settings.safeMaxDays : settings.aggressiveMaxDays,
   });
 
   const handleSettingsChange = (field: string, value: number | string) => {
@@ -56,21 +62,38 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const currentPrice = 28.0;
-    const targetPrice =
-      mode === "safe"
-        ? currentPrice * (1 + settings.safeBuyPercent / 100)
-        : currentPrice * (1 + settings.aggressiveBuyPercent / 100);
+    const fetchData = async () => {
+      const { data, error } = await supabase
+        .from("stock_prices")
+        .select("prices")
+        .eq("ticker", "SOXL")
+        .single();
 
-    const buyAmount = Math.floor(
-      currentSeed / settings.seedDivision / currentPrice
-    );
+      if (error) {
+        console.error("Error fetching current price:", error);
+        return;
+      }
 
-    setCalculation({
-      targetPrice,
-      buyAmount,
-      reservationPeriod: settings.safeMaxDays,
-    });
+      const prices = data.prices;
+      const latestPriceEntry = prices[prices.length - 1];
+      const currentPrice = parseFloat(latestPriceEntry.price);
+      const targetPrice =
+        mode === "safe"
+          ? currentPrice * (1 + settings.safeBuyPercent / 100)
+          : currentPrice * (1 + settings.aggressiveBuyPercent / 100);
+
+      const buyAmount = Math.floor(
+        currentSeed / settings.seedDivision / currentPrice
+      );
+
+      setCalculation({
+        targetPrice,
+        buyAmount,
+        reservationPeriod: settings.safeMaxDays,
+      });
+    };
+
+    fetchData();
   }, [settings, currentSeed, mode]);
 
   return (
@@ -133,9 +156,11 @@ const App: React.FC = () => {
               calculation={calculation}
               initialInvestment={settings.initialInvestment}
               currentSeed={currentSeed}
-              onCalculate={(initialInvestment, currentSeed) => {
+              onCalculate={() => {
                 // 계산 로직 추가
               }}
+              mode={mode}
+              settings={settings}
             />
             <TradeHistory trades={trades} />
           </div>

@@ -1,4 +1,5 @@
 // import { createClient } from "@supabase/supabase-js";
+import { calculateRSI } from "../utils/calculateRSI";
 
 // const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
 // const supabaseKey = process.env.REACT_APP_SUPABASE_API_KEY;
@@ -9,44 +10,12 @@ async function fetchYahooData(ticker: string): Promise<number[]> {
     `/api/v8/finance/chart/${ticker}?interval=1d&range=1y`
   );
   const data = await response.json();
-
   if (data.chart.error) {
     throw new Error("Failed to fetch stock data");
   }
 
   const closePrices = data.chart.result[0].indicators.quote[0].close;
   return calculateRSI(closePrices);
-}
-
-function calculateRSI(prices: number[], period: number = 14): number[] {
-  let gains = 0;
-  let losses = 0;
-  const rsi: number[] = [];
-
-  for (let i = 1; i < prices.length; i++) {
-    const change = prices[i] - prices[i - 1];
-    if (change > 0) {
-      gains += change;
-    } else {
-      losses -= change;
-    }
-
-    if (i >= period) {
-      const avgGain = gains / period;
-      const avgLoss = losses / period;
-      const rs = avgGain / avgLoss;
-      rsi.push(100 - 100 / (1 + rs));
-
-      const firstChange = prices[i - period + 1] - prices[i - period];
-      if (firstChange > 0) {
-        gains -= firstChange;
-      } else {
-        losses += firstChange;
-      }
-    }
-  }
-
-  return rsi;
 }
 
 function thisWeekMode(
@@ -68,7 +37,7 @@ function thisWeekMode(
 
 export async function calculateMode(): Promise<"safe" | "aggressive"> {
   const rsiValues = await fetchYahooData("QQQ");
-
+  //console.log("rsiValues", rsiValues);
   if (rsiValues.length < 2) {
     throw new Error("Not enough RSI data");
   }
@@ -77,7 +46,8 @@ export async function calculateMode(): Promise<"safe" | "aggressive"> {
   const qqqRsiLate = rsiValues[rsiValues.length - 1];
 
   const mode = thisWeekMode(qqqRsiLate, qqqRsiLateLate);
-
+  // console.log("qqqRsiLateLate", qqqRsiLateLate);
+  // console.log("qqqRsiLate", qqqRsiLate);
   if (mode !== "previous") {
     return mode;
   }

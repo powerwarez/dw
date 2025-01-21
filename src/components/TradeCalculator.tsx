@@ -6,11 +6,19 @@ interface Calculation {
   reservationPeriod: number;
 }
 
+interface Settings {
+  safeMaxDays: number;
+  aggressiveMaxDays: number;
+  // 다른 설정 필드들...
+}
+
 interface TradeCalculatorProps {
   calculation: Calculation;
   initialInvestment: number;
   currentSeed: number;
   onCalculate: (initialInvestment: number, currentSeed: number) => void;
+  mode: "safe" | "aggressive";
+  settings: Settings;
 }
 
 // 거래일 계산을 위한 유틸리티 함수들
@@ -113,6 +121,8 @@ const TradeCalculator: React.FC<TradeCalculatorProps> = ({
   initialInvestment,
   currentSeed,
   onCalculate,
+  mode,
+  settings,
 }) => {
   useEffect(() => {
     onCalculate(initialInvestment, currentSeed);
@@ -122,10 +132,9 @@ const TradeCalculator: React.FC<TradeCalculatorProps> = ({
     ((currentSeed - initialInvestment) / initialInvestment) * 100;
 
   // 거래일 기준으로 예약 기간 계산
-  const reservationEndDate = addTradingDays(
-    new Date(),
-    calculation.reservationPeriod
-  );
+  const reservationPeriod =
+    mode === "safe" ? settings.safeMaxDays : settings.aggressiveMaxDays;
+  const reservationEndDate = addTradingDays(new Date(), reservationPeriod);
 
   return (
     <div className="bg-gray-800 rounded-lg p-6 w-full">
@@ -141,7 +150,7 @@ const TradeCalculator: React.FC<TradeCalculatorProps> = ({
         </div>
         <div className="bg-gray-700 p-4 rounded">
           <h3 className="text-lg mb-2">현재 투자금</h3>
-          <p className="text-2xl font-bold text-yellow-400">
+          <p className="text-2xl font-bold text-green-400">
             ${currentSeed.toLocaleString()}
           </p>
         </div>
@@ -161,34 +170,23 @@ const TradeCalculator: React.FC<TradeCalculatorProps> = ({
           <h2 className="text-xl mb-4">오늘의 매수</h2>
           <div className="bg-gray-700 p-4 rounded">
             <h3 className="text-lg mb-2">목표 매수가</h3>
-            <p className="text-2xl font-bold text-green-400">
+            <p className="text-2xl font-bold text-red-400">
               ${calculation.targetPrice.toFixed(2)}
             </p>
           </div>
           <div className="bg-gray-700 p-4 rounded">
             <h3 className="text-lg mb-2">매수 수량</h3>
-            <p className="text-2xl font-bold text-blue-400">
+            <p className="text-2xl font-bold text-red-400">
               {calculation.buyAmount}주
-            </p>
-          </div>
-          <div className="bg-gray-700 p-4 rounded">
-            <h3 className="text-lg mb-2">예약 기간</h3>
-            <p className="text-2xl font-bold text-blue-400">
-              {reservationEndDate.toLocaleDateString("ko-KR", {
-                year: "2-digit",
-                month: "2-digit",
-                day: "2-digit",
-              })}{" "}
-              까지
             </p>
           </div>
         </div>
         <div>
-          <h2 className="text-xl mb-4">오늘의 매도</h2>
+          <h2 className="text-xl mb-4">오늘의 MOC 매도</h2>
           <div className="bg-gray-700 p-4 rounded flex justify-between">
             <div>
               <h3 className="text-lg mb-2">목표 매도가</h3>
-              <p className="text-2xl font-bold text-green-400">
+              <p className="text-2xl font-bold text-blue-400">
                 ${calculation.targetPrice.toFixed(2)}
               </p>
             </div>
@@ -196,6 +194,17 @@ const TradeCalculator: React.FC<TradeCalculatorProps> = ({
               <h3 className="text-lg mb-2">매도 수량</h3>
               <p className="text-2xl font-bold text-blue-400">
                 {calculation.buyAmount}주
+              </p>
+            </div>
+            <div>
+              <h3 className="text-lg mb-2">예약 기간</h3>
+              <p className="text-2xl font-bold text-blue-400">
+                {reservationEndDate.toLocaleDateString("ko-KR", {
+                  year: "2-digit",
+                  month: "2-digit",
+                  day: "2-digit",
+                })}{" "}
+                까지
               </p>
             </div>
           </div>
