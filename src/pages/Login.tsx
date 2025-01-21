@@ -1,14 +1,23 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import supabase from "../utils/supabase";
 
 const Login: React.FC = () => {
+  const navigate = useNavigate();
+
   const handleLogin = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "kakao",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
     });
 
     if (error) {
       console.error("Error during Kakao login:", error);
+    } else {
+      // 로그인 성공 시 메인 페이지로 리디렉션
+      navigate("/");
     }
   };
 
