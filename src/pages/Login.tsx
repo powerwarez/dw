@@ -41,10 +41,19 @@ const Login: React.FC = () => {
         />
         <button
           onClick={handleLogin}
-          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mb-4"
         >
           로그인
         </button>
+        <div>
+          <span>계정이 없으신가요? </span>
+          <button
+            onClick={() => navigate("/signup")}
+            className="text-blue-300 hover:text-blue-500"
+          >
+            회원가입
+          </button>
+        </div>
       </div>
     </div>
   );
