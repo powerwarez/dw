@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 
 interface Calculation {
   targetPrice: number;
@@ -9,7 +9,24 @@ interface Calculation {
 interface Settings {
   safeMaxDays: number;
   aggressiveMaxDays: number;
-  // 다른 설정 필드들...
+  safeBuyPercent: number;
+  aggressiveBuyPercent: number;
+  seedDivision: number;
+}
+
+interface Trade {
+  targetSellPrice: number;
+  quantity: number;
+  sellQuantity?: number;
+  daysUntilSell: number;
+  actualBuyPrice?: number;
+  buyDate: string;
+  mode: string;
+}
+
+interface PriceEntry {
+  price: string;
+  date: string;
 }
 
 interface TradeCalculatorProps {
@@ -19,6 +36,10 @@ interface TradeCalculatorProps {
   onCalculate: (initialInvestment: number, currentSeed: number) => void;
   mode: "safe" | "aggressive";
   settings: Settings;
+  trades: Trade[];
+  yesterdaySell?: Trade;
+  closingPrices: PriceEntry[];
+  zeroDayTrades?: Trade[];
 }
 
 // 거래일 계산을 위한 유틸리티 함수들
@@ -91,7 +112,7 @@ const getUSHolidays = (year: number): Date[] => {
   });
 };
 
-const isHoliday = (date: Date): boolean => {
+export const isHoliday = (date: Date): boolean => {
   const year = date.getFullYear();
   const holidays = getUSHolidays(year);
   return holidays.some(
@@ -102,20 +123,6 @@ const isHoliday = (date: Date): boolean => {
   );
 };
 
-const addTradingDays = (date: Date, days: number): Date => {
-  const result = new Date(date);
-  let tradingDays = 0;
-
-  while (tradingDays < days) {
-    result.setDate(result.getDate() + 1);
-    if (!isWeekend(result) && !isHoliday(result)) {
-      tradingDays++;
-    }
-  }
-
-  return result;
-};
-
 const TradeCalculator: React.FC<TradeCalculatorProps> = ({
   calculation,
   initialInvestment,
@@ -123,18 +130,40 @@ const TradeCalculator: React.FC<TradeCalculatorProps> = ({
   onCalculate,
   mode,
   settings,
+  trades = [],
+  yesterdaySell,
+  closingPrices,
+  zeroDayTrades,
 }) => {
+  const [targetBuyPrice, setTargetBuyPrice] = useState<number>(0);
+  const [buyQuantity, setBuyQuantity] = useState<number>(0);
+
   useEffect(() => {
-    onCalculate(initialInvestment, currentSeed);
-  }, [initialInvestment, currentSeed, onCalculate]);
+    if (closingPrices.length > 0) {
+      // 전일 종가 찾기
+      const previousClosePrice = parseFloat(
+        closingPrices[closingPrices.length - 1].price
+      );
+
+      // 매수가 계산
+      const buyPercent =
+        mode === "safe"
+          ? settings.safeBuyPercent
+          : settings.aggressiveBuyPercent;
+      const calculatedTargetBuyPrice =
+        previousClosePrice * (1 + buyPercent / 100);
+      const calculatedBuyQuantity = Math.floor(
+        currentSeed / settings.seedDivision / calculatedTargetBuyPrice
+      );
+
+      // 상태 업데이트
+      setTargetBuyPrice(calculatedTargetBuyPrice);
+      setBuyQuantity(calculatedBuyQuantity);
+    }
+  }, [closingPrices, currentSeed, mode, settings]);
 
   const profitRate =
     ((currentSeed - initialInvestment) / initialInvestment) * 100;
-
-  // 거래일 기준으로 예약 기간 계산
-  const reservationPeriod =
-    mode === "safe" ? settings.safeMaxDays : settings.aggressiveMaxDays;
-  const reservationEndDate = addTradingDays(new Date(), reservationPeriod);
 
   return (
     <div className="bg-gray-800 rounded-lg p-6 w-full">
@@ -172,42 +201,63 @@ const TradeCalculator: React.FC<TradeCalculatorProps> = ({
             <div className="flex flex-col items-center mx-2 mb-4">
               <h3 className="text-lg mb-2">매수가</h3>
               <p className="text-xl font-bold text-red-400">
-                ${calculation.targetPrice.toFixed(2)}
+                ${targetBuyPrice.toFixed(2)}
               </p>
             </div>
             <div className="flex flex-col items-center mx-2 mb-4">
               <h3 className="text-lg mb-2">수량</h3>
-              <p className="text-xl font-bold text-red-400">
-                {calculation.buyAmount}주
-              </p>
+              <p className="text-xl font-bold text-red-400">{buyQuantity}주</p>
             </div>
           </div>
         </div>
         <div>
-          <h2 className="text-xl mb-4">오늘의 MOC 매도</h2>
-          <div className="bg-gray-700 p-4 rounded flex flex-wrap justify-around">
-            <div className="flex flex-col items-center mx-2 mb-4">
-              <h3 className="text-lg mb-2">매도가</h3>
-              <p className="text-xl font-bold text-blue-400">
-                ${calculation.targetPrice.toFixed(2)}
-              </p>
-            </div>
-            <div className="flex flex-col items-center mx-2 mb-4">
-              <h3 className="text-lg mb-2">수량</h3>
-              <p className="text-xl font-bold text-blue-400">
-                {calculation.buyAmount}주
-              </p>
-            </div>
-            <div className="flex flex-col items-center mx-2 mb-4">
-              <h3 className="text-lg mb-2">기간</h3>
-              <p className="text-xl font-bold text-blue-400">
-                {"~"}
-                {reservationEndDate.toLocaleDateString("ko-KR", {
-                  month: "2-digit",
-                  day: "2-digit",
-                })}
-              </p>
-            </div>
+          <h2 className="text-xl mb-4">오늘의 매도</h2>
+          <div className="bg-gray-700 p-4 rounded flex justify-around">
+            {yesterdaySell && (
+              <div className="flex flex-col items-center mx-2 mb-4">
+                <h3 className="text-lg mb-2">매도가</h3>
+                <p className="text-xl font-bold text-blue-400">
+                  ${yesterdaySell.targetSellPrice?.toFixed(2)}
+                </p>
+                <h3 className="text-lg mb-2">수량</h3>
+                <p className="text-xl font-bold text-blue-400">
+                  {yesterdaySell.quantity}주
+                </p>
+                <h3 className="text-lg mb-2">기간</h3>
+                <p className="text-xl font-bold text-blue-400">
+                  ~
+                  {new Date(
+                    new Date().setDate(
+                      new Date().getDate() + yesterdaySell.daysUntilSell
+                    )
+                  ).toLocaleDateString("ko-KR", {
+                    month: "2-digit",
+                    day: "2-digit",
+                  })}
+                </p>
+              </div>
+            )}
+            {zeroDayTrades && zeroDayTrades.length > 0 && (
+              <div>
+                {zeroDayTrades.map((trade, idx) => (
+                  <div
+                    key={idx}
+                    className="flex flex-col items-center mx-2 mb-4"
+                  >
+                    <h3 className="text-lg mb-2">매도가</h3>
+                    <p className="text-xl font-bold text-blue-400">
+                      {trade.targetSellPrice?.toFixed(2)}
+                    </p>
+                    <h3 className="text-lg mb-2">수량</h3>
+                    <p className="text-xl font-bold text-blue-400">
+                      {trade.quantity}주
+                    </p>
+                    <h3 className="text-lg mb-2">기간</h3>
+                    <p className="text-xl font-bold text-blue-400">MOC</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

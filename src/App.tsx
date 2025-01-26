@@ -5,44 +5,25 @@ import {
   Routes,
   Navigate,
 } from "react-router-dom";
-import supabase from "./utils/supabase";
+import MainPage from "./pages/MainPage";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
-import MainPage from "./pages/MainPage";
 import { Session } from "@supabase/supabase-js";
 
 const App: React.FC = () => {
-  const [session, setSession] = useState<Session | null>(null);
+  // 임시로 세션을 항상 로그인된 상태로 설정
+  const [session, setSession] = useState<Session | null>({} as Session);
 
   useEffect(() => {
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
-      }
-    );
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
+    // 실제 인증 로직을 나중에 추가
   }, []);
 
   return (
     <Router>
       <Routes>
-        <Route
-          path="/login"
-          element={session ? <Navigate to="/" /> : <Login />}
-        />
-        <Route
-          path="/signup"
-          element={session ? <Navigate to="/" /> : <Signup />}
-        />
-        <Route
-          path="/"
-          element={
-            session ? <MainPage session={session} /> : <Navigate to="/login" />
-          }
-        />
+        <Route path="/login" element={<Navigate to="/" />} />
+        <Route path="/signup" element={<Navigate to="/" />} />
+        <Route path="/" element={<MainPage session={session} />} />
       </Routes>
     </Router>
   );

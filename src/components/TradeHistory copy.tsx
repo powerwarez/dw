@@ -47,7 +47,6 @@ interface TradeHistoryProps {
   settings: Settings;
   currentSeed: number;
   onUpdateYesterdaySell: (sell: Trade) => void;
-  onTradesUpdate?: (trades: Trade[]) => void;
 }
 
 const TradeHistory: React.FC<TradeHistoryProps> = ({
@@ -55,7 +54,6 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
   settings,
   currentSeed,
   onUpdateYesterdaySell,
-  onTradesUpdate,
 }) => {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [weeklyModes, setWeeklyModes] = useState<{
@@ -234,7 +232,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
             ? settings.safeMaxDays
             : settings.aggressiveMaxDays;
 
-        // "sellDate가 없으면" 아직 안 팔린 것
+        // “sellDate가 없으면” 아직 안 팔린 것
         if (!trade.sellDate) {
           // 남은 날짜 = maxDays - 실제 경과 일수(음수면 0 처리)
           const remaining = maxDays - daysPassed;
@@ -245,7 +243,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
             // 전량 매도되었으면 0
             trade.daysUntilSell = 0;
           } else {
-            // 부분만 매도라면 "남은 날짜 = maxDays - 경과 일수"
+            // 부분만 매도라면 “남은 날짜 = maxDays - 경과 일수”
             const remaining = maxDays - daysPassed;
             trade.daysUntilSell = Math.max(0, remaining);
           }
@@ -314,36 +312,26 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
       }
       // 트레이드 생성 종료 //////////////////////////////
 
-      // 현재 trades와 동일하면 setTrades/onTradesUpdate를 생략
-      if (JSON.stringify(newTrades) !== JSON.stringify(trades)) {
-        setTrades(newTrades);
-        if (onTradesUpdate) {
-          onTradesUpdate(newTrades);
-        }
-      }
+      setTrades(newTrades);
 
       const yesterday = new Date();
-      yesterday.setDate(new Date().getDate() - 2);
-
+      yesterday.setDate(new Date().getDate() - 1);
       const yesterdaySell = newTrades.find(
         (trade) =>
-          trade.buyDate === yesterday.toISOString().split("T")[0] &&
-          trade.targetSellPrice > 0
+          trade.buyDate ===
+            yesterday.toLocaleDateString("ko-KR", {
+              month: "2-digit",
+              day: "2-digit",
+            }) && trade.targetSellPrice > 0
       );
-      console.log("yesterdaySell:", yesterdaySell);
+
       if (yesterdaySell) {
         onUpdateYesterdaySell(yesterdaySell);
       }
     };
 
     fetchTrades();
-  }, [
-    closingPrices,
-    weeklyModes,
-    currentSeed,
-    settings,
-    onUpdateYesterdaySell,
-  ]);
+  }, [closingPrices, weeklyModes, currentSeed, settings]);
 
   const handleEditPriceClick = (index: number) => {
     setEditPriceIndex(index);
@@ -581,7 +569,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                     {trade.dailyProfit?.toFixed(2)}
                   </td>
                   <td className="text-center">
-                    {trade.actualwithdrawalAmount !== undefined
+                    {trade.actualwithdrawalAmount > 0
                       ? trade.actualwithdrawalAmount
                       : "-"}
                   </td>

@@ -1,0 +1,16 @@
+{
+  "initialInvestment": 75000,
+  "startDate": "2025-01-01",
+  "seedDivision": 7,
+  "safeBuyPercent": 3,
+  "safeSellPercent": 0.2,
+  "safeMaxDays": 30,
+  "aggressiveBuyPercent": 5,
+  "aggressiveSellPercent": 2.5,
+  "aggressiveMaxDays": 7,
+  "investmentRenewal": 10,
+  "profitCompounding": 80,
+  "lossCompounding": 30,
+  "fee": 0.0,
+  "withdrawalAmount": 0
+}

@@ -3,88 +3,72 @@ import TradeCalculator from "../components/TradeCalculator";
 import InvestmentSettings from "../components/InvestmentSettings";
 import TradeHistory from "../components/TradeHistory";
 import { FaBars } from "react-icons/fa";
-import { calculateMode } from "../components/ModeCalculator";
+import { calculateModeForDate } from "../components/ModeCalculator";
 import supabase from "../utils/supabase";
-import { saveSettings, loadSettings } from "../utils/supabase";
 import { Session } from "@supabase/supabase-js";
+import settings from "../data/settings.json";
 
 interface Trade {
-  date: string;
-  amount: number;
-  price: number;
+  buyDate: string;
+  mode: string;
+  buyPrice: number;
+  quantity: number;
+  targetSellPrice: number;
+  sellDate?: string;
+  sellPrice?: number;
+  sellQuantity?: number;
+  profit?: number;
+  daysUntilSell: number;
 }
 
-const MainPage: React.FC<{ session: Session }> = ({ session }) => {
+interface MainPageProps {
+  session: { user?: { id: string; email: string } };
+}
+
+const MainPage: React.FC<MainPageProps> = ({ session }) => {
   const [showSidebar, setShowSidebar] = useState(false);
-  const [settings, setSettings] = useState({
-    initialInvestment: 75000,
-    startDate: new Date().toISOString().split("T")[0],
-    seedDivision: 7,
-    safeBuyPercent: 3,
-    safeSellPercent: 0.2,
-    safeMaxDays: 30,
-    aggressiveBuyPercent: 5,
-    aggressiveSellPercent: 2.5,
-    aggressiveMaxDays: 7,
-    investmentRenewal: 10,
-    profitCompounding: 80,
-    lossCompounding: 30,
-    fee: 0.0,
-    withdrawalAmount: 0,
-  });
-
-  const [trades] = useState<Trade[]>([]);
-  const [currentSeed] = useState<number>(settings.initialInvestment);
+  const [settings, setSettings] = useState<any>(null);
+  const [closingPrices, setClosingPrices] = useState<any[]>([]);
+  const [currentSeed, setCurrentSeed] = useState<number>(10000);
   const [mode, setMode] = useState<"safe" | "aggressive">("safe");
-
   const [calculation, setCalculation] = useState({
     targetPrice: 0,
     buyAmount: 0,
-    reservationPeriod:
-      mode === "safe" ? settings.safeMaxDays : settings.aggressiveMaxDays,
+    reservationPeriod: 0,
   });
+  const [previousClosePrice, setPreviousClosePrice] = useState<number>(0);
+  const [yesterdaySell, setYesterdaySell] = useState<Trade | undefined>(
+    undefined
+  );
+  const [zeroDayTrades, setZeroDayTrades] = useState<Trade[]>([]);
+  const [allTrades, setAllTrades] = useState<Trade[]>([]);
 
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const loadedSettings = await loadSettings(session.user.id);
-        if (loadedSettings) {
-          setSettings((prevSettings) => ({
-            ...prevSettings,
-            ...loadedSettings,
-          }));
+        const response = await fetch("/src/data/settings.json");
+        if (!response.ok) {
+          throw new Error("Failed to fetch settings.json");
         }
+        const data = await response.json();
+        setSettings(data);
+        setCurrentSeed(data.initialInvestment);
+        setCalculation((prev) => ({
+          ...prev,
+          reservationPeriod:
+            mode === "safe" ? data.safeMaxDays : data.aggressiveMaxDays,
+        }));
       } catch (error) {
         console.error("Failed to load settings:", error);
       }
     };
 
     fetchSettings();
-  }, [session.user.id]);
-
-  const handleSettingsChange = (field: string, value: number | string) => {
-    setSettings((prevSettings) => ({
-      ...prevSettings,
-      [field]: value,
-    }));
-  };
-
-  const handleSaveSettings = async () => {
-    try {
-      await saveSettings(session.user.id, settings);
-      console.log("Settings saved successfully");
-    } catch (error) {
-      console.error("Failed to save settings:", error);
-    }
-  };
+  }, [mode]);
 
   useEffect(() => {
-    calculateMode()
-      .then((calculatedMode) => setMode(calculatedMode))
-      .catch((error) => console.error("Error calculating mode:", error));
-  }, []);
+    if (!settings) return;
 
-  useEffect(() => {
     const fetchData = async () => {
       const { data, error } = await supabase
         .from("stock_prices")
@@ -93,31 +77,77 @@ const MainPage: React.FC<{ session: Session }> = ({ session }) => {
         .single();
 
       if (error) {
-        console.error("Error fetching current price:", error);
+        console.error("Error fetching SOXL prices:", error);
         return;
       }
 
-      const prices = data.prices;
-      const latestPriceEntry = prices[prices.length - 1];
-      const currentPrice = parseFloat(latestPriceEntry.price);
-      const targetPrice =
-        mode === "safe"
-          ? currentPrice * (1 + settings.safeBuyPercent / 100)
-          : currentPrice * (1 + settings.aggressiveBuyPercent / 100);
-
-      const buyAmount = Math.floor(
-        currentSeed / settings.seedDivision / currentPrice
-      );
-
-      setCalculation({
-        targetPrice,
-        buyAmount,
-        reservationPeriod: settings.safeMaxDays,
-      });
+      setClosingPrices(data.prices);
     };
 
     fetchData();
-  }, [settings, currentSeed, mode]);
+  }, [settings]);
+
+  useEffect(() => {
+    if (closingPrices.length > 0) {
+      const lastClosePrice = parseFloat(
+        closingPrices[closingPrices.length - 1].price
+      );
+      if (lastClosePrice !== previousClosePrice) {
+        setPreviousClosePrice(lastClosePrice);
+      }
+    }
+  }, [closingPrices, previousClosePrice]);
+
+  const handleSettingsChange = (field: string, value: number | string) => {
+    setSettings((prevSettings: any) => ({
+      ...prevSettings,
+      [field]: value,
+    }));
+  };
+
+  const handleSaveSettings = async () => {
+    try {
+      await supabase
+        .from("settings")
+        .upsert({ user_id: session.user?.id, ...settings });
+      console.log("Settings saved successfully");
+    } catch (error) {
+      console.error("Failed to save settings:", error);
+    }
+  };
+
+  useEffect(() => {
+    const today = new Date().toISOString().split("T")[0];
+    calculateModeForDate(today)
+      .then((calculatedMode) => setMode(calculatedMode))
+      .catch((error) => console.error("Error calculating mode:", error));
+  }, []);
+
+  const handleUpdateSeed = (newSeed: number) => {
+    setCurrentSeed(newSeed);
+  };
+
+  const handleCalculate = () => {
+    if (previousClosePrice !== calculation.targetPrice) {
+      setCalculation((prev) => ({
+        ...prev,
+        targetPrice: previousClosePrice,
+      }));
+    }
+  };
+
+  const handleUpdateYesterdaySell = (sell: Trade) => {
+    setYesterdaySell(sell);
+  };
+
+  const handleZeroDayTradesUpdate = (zTrades: Trade[]) => {
+    console.log("▶ MainPage에서 받은 zeroDayTrades:", zTrades);
+    setZeroDayTrades(zTrades);
+  };
+
+  if (!settings) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <div className="w-screen h-screen bg-gray-900 text-white overflow-hidden">
@@ -179,19 +209,31 @@ const MainPage: React.FC<{ session: Session }> = ({ session }) => {
               calculation={calculation}
               initialInvestment={settings.initialInvestment}
               currentSeed={currentSeed}
-              onCalculate={() => {
-                // 계산 로직 추가
-              }}
+              onCalculate={handleCalculate}
               mode={mode}
               settings={settings}
+              closingPrices={closingPrices}
+              yesterdaySell={yesterdaySell}
+              zeroDayTrades={zeroDayTrades}
             />
-            <TradeHistory trades={trades} />
+            <TradeHistory
+              closingPrices={closingPrices}
+              settings={settings}
+              currentSeed={currentSeed}
+              onUpdateSeed={handleUpdateSeed}
+              onUpdateYesterdaySell={handleUpdateYesterdaySell}
+              onZeroDayTradesUpdate={handleZeroDayTradesUpdate}
+            />
           </div>
         </main>
       </div>
       <button onClick={handleSaveSettings}>Save Settings</button>
       <div>
-        <p>Logged in as {session.user.email}</p>
+        {session.user ? (
+          <p>Logged in as: {session.user.email}</p>
+        ) : (
+          <p>No user logged in</p>
+        )}
         <button onClick={() => supabase.auth.signOut()}>Logout</button>
       </div>
     </div>
