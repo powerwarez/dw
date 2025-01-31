@@ -258,6 +258,12 @@ const TradeCalculator: React.FC<TradeCalculatorProps> = ({
                 ))}
               </div>
             )}
+            {!yesterdaySell &&
+              (!zeroDayTrades || zeroDayTrades.length === 0) && (
+                <div className="text-center text-white p-4">
+                  <p>오늘 매도는 없습니다</p>
+                </div>
+              )}
           </div>
         </div>
       </div>

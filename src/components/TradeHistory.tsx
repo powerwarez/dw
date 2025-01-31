@@ -82,17 +82,13 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     initModes: ModeItem[] | null
   ): Promise<ModeItem[] | null> {
     if (cachedModes && cachedModes.length > 0) {
-      console.log("이미 cachedModes가 있으므로 재사용");
       return cachedModes;
     }
     setIsModeLoading(true);
-    console.log("modes 대기 시작");
     while (!initModes || initModes.length === 0) {
-      console.log("[DEBUG] 모드 정보가 없어서 1초 대기");
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
     setIsModeLoading(false);
-    console.log("modes 대기 완료, cachedModes 저장");
     setCachedModes(initModes);
     return initModes;
   }
@@ -195,7 +191,6 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
             : settings.aggressiveSellPercent;
         trade.targetSellPrice = actualBuyPrice * (1 + sellPercent / 100);
 
-        let sellFound = false;
         for (let i = index + 1; i < closingPrices.length; i++) {
           const futurePriceEntry = closingPrices[i];
           const futurePrice = parseFloat(futurePriceEntry.price);
@@ -227,7 +222,6 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
               `dailyProfitMap[${futureSellDateStr}] = ${dailyProfitMap[futureSellDateStr].totalProfit}`
             );
 
-            sellFound = true;
             tradeCount++;
             break;
           }
@@ -260,14 +254,17 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
           }
         }
 
-        if (tradeIndex % 10 === 0) {
+        if ((tradeIndex - 1) % 10 === 0) {
           dailyprofitTenDaySum = Object.entries(dailyProfitMap).reduce(
             (sum, [date, val]) =>
-              date <= trade.buyDate ? sum + val.totalProfit : sum,
+              new Date(date) <= new Date(trade.buyDate) &&
+              val.tradeIndex > tradeIndex - 10
+                ? sum + val.totalProfit
+                : sum,
             0
           );
-          trade.actualwithdrawalAmount = trade.withdrawalAmount;
 
+          trade.actualwithdrawalAmount = trade.withdrawalAmount;
           console.log(
             "[DEBUG] 10번째 트레이드 도달",
             "buyDate:",
@@ -325,7 +322,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
       }
 
       const yesterday = new Date();
-      yesterday.setDate(new Date().getDate() - 2);
+      yesterday.setDate(new Date().getDate() - 1);
 
       const yesterdaySell = newTrades.find(
         (trade) =>
