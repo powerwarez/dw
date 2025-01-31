@@ -62,7 +62,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
   currentSeed,
   onUpdateYesterdaySell,
   onTradesUpdate,
-  onZeroDayTradesUpdate,
+  // onZeroDayTradesUpdate,
   modes,
 }) => {
   const [isModeLoading, setIsModeLoading] = useState(false);
@@ -73,9 +73,9 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
   );
   const [tempPrice, setTempPrice] = useState<number | null>(null);
   const [tempQuantity, setTempQuantity] = useState<number | null>(null);
-  const [dailyProfits, setDailyProfits] = useState<{ [date: string]: number }>(
-    {}
-  );
+  // const [dailyProfits, setDailyProfits] = useState<{ [date: string]: number }>(
+  //   {}
+  // );
   const [cachedModes, setCachedModes] = useState<ModeItem[] | null>(null);
 
   async function waitForModes(
@@ -370,10 +370,13 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     const updatedTrade = { ...trades[index], [field]: value };
 
     if (field === "actualSellPrice" || field === "sellQuantity") {
-      const sellPrice =
-        field === "actualSellPrice" ? value : updatedTrade.actualSellPrice;
-      const sellQuantity =
-        field === "sellQuantity" ? value : updatedTrade.sellQuantity;
+      const sellPrice = Number(
+        field === "actualSellPrice" ? value : updatedTrade.actualSellPrice
+      );
+      const sellQuantity = Number(
+        field === "sellQuantity" ? value : updatedTrade.sellQuantity
+      );
+
       if (sellPrice && sellQuantity) {
         updatedTrade.profit =
           ((sellPrice as number) - updatedTrade.actualBuyPrice) *

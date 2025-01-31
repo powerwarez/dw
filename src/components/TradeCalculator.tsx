@@ -119,13 +119,13 @@ export const isHoliday = (date: Date): boolean => {
 };
 
 const TradeCalculator: React.FC<TradeCalculatorProps> = ({
-  calculation,
+  // calculation,
   initialInvestment,
   currentSeed,
-  onCalculate,
+  // onCalculate,
   mode,
   settings,
-  trades = [],
+  // trades = [],
   yesterdaySell,
   closingPrices,
   zeroDayTrades,

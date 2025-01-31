@@ -5,10 +5,10 @@ import TradeHistory from "../components/TradeHistory";
 import { FaBars, FaSpinner } from "react-icons/fa";
 import { calculateModeForDate } from "../components/ModeCalculator";
 import supabase from "../utils/supabase";
-// import { Session } from "@supabase/supabase-js";
+import { Session } from "@supabase/supabase-js";
 // import settings from "../data/settings.json";
 
-interface Trade {
+interface SoXLTrade {
   buyDate: string;
   mode: string;
   buyPrice: number;
@@ -32,14 +32,29 @@ interface ApiResponse {
   inserted_at: string;
 }
 
+interface AppSettings {
+  initialInvestment: number;
+  safeMaxDays: number;
+  aggressiveMaxDays: number;
+  startDate: string;
+  safeBuyPercent: number;
+  safeSellPercent: number;
+  seedDivision: number;
+  profitCompounding: boolean;
+  aggressiveBuyPercent: number;
+  [key: string]: number | string | boolean | undefined;
+}
+
 interface MainPageProps {
-  session?: { user?: { id: string; email: string } };
+  session: Session | null;
 }
 
 const MainPage: React.FC<MainPageProps> = ({ session }) => {
   const [showSidebar, setShowSidebar] = useState(false);
-  const [settings, setSettings] = useState<any>(null);
-  const [closingPrices, setClosingPrices] = useState<any[]>([]);
+  const [settings, setSettings] = useState<AppSettings | null>(null);
+  const [closingPrices, setClosingPrices] = useState<Array<{ price: string }>>(
+    []
+  );
   const [currentSeed, setCurrentSeed] = useState<number>(10000);
   const [mode, setMode] = useState<"safe" | "aggressive">("safe");
   const [calculation, setCalculation] = useState({
@@ -48,11 +63,10 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
     reservationPeriod: 0,
   });
   const [previousClosePrice, setPreviousClosePrice] = useState<number>(0);
-  const [yesterdaySell, setYesterdaySell] = useState<Trade | undefined>(
+  const [yesterdaySell, setYesterdaySell] = useState<SoXLTrade | undefined>(
     undefined
   );
-  const [zeroDayTrades, setZeroDayTrades] = useState<Trade[]>([]);
-  const [allTrades, setAllTrades] = useState<Trade[]>([]);
+  const [zeroDayTrades, setZeroDayTrades] = useState<SoXLTrade[]>([]);
   const [modes, setModes] = useState<ApiModeItem[]>([]);
 
   useEffect(() => {
@@ -131,8 +145,8 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
   }, []);
 
   const handleSettingsChange = (field: string, value: number | string) => {
-    setSettings((prevSettings: any) => ({
-      ...prevSettings,
+    setSettings((prevSettings) => ({
+      ...(prevSettings as AppSettings),
       [field]: value,
     }));
   };
@@ -168,18 +182,19 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
     }
   };
 
-  const handleUpdateYesterdaySell = (sell: Trade) => {
+  const handleUpdateYesterdaySell = (sell: SoXLTrade) => {
     setYesterdaySell(sell);
   };
 
-  const handleZeroDayTradesUpdate = (zTrades: Trade[]) => {
+  const handleZeroDayTradesUpdate = (zTrades: SoXLTrade[]) => {
     console.log("▶ MainPage에서 받은 zeroDayTrades:", zTrades);
     setZeroDayTrades(zTrades);
   };
 
-  const handleTradesUpdate = (newTrades: any[]) => {
-    // ...
-  };
+  // const handleTradesUpdate = (trades: Trade[]) => {
+  //   setTrades(trades);
+  //   console.log("▶ MainPage에서 받은 trades:", trades);
+  // };
 
   // modes 배열에 데이터가 있다면 마지막 항목의 모드를 "이번주 모드"로 삼는다.
   const lastMode = modes.length > 0 ? modes[modes.length - 1].mode : "safe";
@@ -249,8 +264,8 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
             currentSeed={currentSeed}
             onCalculate={handleCalculate}
             mode={mode}
-            settings={settings}
-            closingPrices={closingPrices}
+            settings={settings as AppSettings}
+            closingPrices={closingPrices as PriceEntry[]}
             yesterdaySell={yesterdaySell}
             zeroDayTrades={zeroDayTrades}
           />
@@ -263,7 +278,7 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
               onUpdateSeed={handleUpdateSeed}
               onUpdateYesterdaySell={handleUpdateYesterdaySell}
               onZeroDayTradesUpdate={handleZeroDayTradesUpdate}
-              onTradesUpdate={handleTradesUpdate}
+              // onTradesUpdate={handleTradesUpdate}
               modes={modes}
             />
           ) : (
