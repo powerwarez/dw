@@ -153,9 +153,9 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
     }
   };
 
-  const handleUpdateSeed = (newSeed: number) => {
-    setCurrentSeed(newSeed);
-  };
+  // const handleUpdateSeed = (newSeed: number) => {
+  //   setCurrentSeed(newSeed);
+  // };
 
   const handleCalculate = () => {
     if (previousClosePrice !== calculation.targetPrice) {
@@ -259,7 +259,7 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
               closingPrices={closingPrices}
               settings={settings}
               currentSeed={currentSeed}
-              onUpdateSeed={handleUpdateSeed}
+              // onUpdateSeed={handleUpdateSeed}
               onUpdateYesterdaySell={handleUpdateYesterdaySell}
               onZeroDayTradesUpdate={handleZeroDayTradesUpdate}
               // onTradesUpdate={handleTradesUpdate}
