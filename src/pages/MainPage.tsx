@@ -3,23 +3,10 @@ import TradeCalculator from "../components/TradeCalculator";
 import InvestmentSettings from "../components/InvestmentSettings";
 import TradeHistory from "../components/TradeHistory";
 import { FaBars, FaSpinner } from "react-icons/fa";
-import { calculateModeForDate } from "../components/ModeCalculator";
 import supabase from "../utils/supabase";
 import { Session } from "@supabase/supabase-js";
+import type { Trade, PriceEntry } from "../components/TradeHistory";
 // import settings from "../data/settings.json";
-
-interface SoXLTrade {
-  buyDate: string;
-  mode: string;
-  buyPrice: number;
-  quantity: number;
-  targetSellPrice: number;
-  sellDate?: string;
-  sellPrice?: number;
-  sellQuantity?: number;
-  profit?: number;
-  daysUntilSell: number;
-}
 
 interface ApiModeItem {
   date: string;
@@ -40,9 +27,11 @@ interface AppSettings {
   safeBuyPercent: number;
   safeSellPercent: number;
   seedDivision: number;
-  profitCompounding: boolean;
+  profitCompounding: number;
+  lossCompounding: number;
+  aggressiveSellPercent: number;
+  withdrawalAmount: number;
   aggressiveBuyPercent: number;
-  [key: string]: number | string | boolean | undefined;
 }
 
 interface MainPageProps {
@@ -52,9 +41,7 @@ interface MainPageProps {
 const MainPage: React.FC<MainPageProps> = ({ session }) => {
   const [showSidebar, setShowSidebar] = useState(false);
   const [settings, setSettings] = useState<AppSettings | null>(null);
-  const [closingPrices, setClosingPrices] = useState<Array<{ price: string }>>(
-    []
-  );
+  const [closingPrices, setClosingPrices] = useState<PriceEntry[]>([]);
   const [currentSeed, setCurrentSeed] = useState<number>(10000);
   const [mode, setMode] = useState<"safe" | "aggressive">("safe");
   const [calculation, setCalculation] = useState({
@@ -63,10 +50,10 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
     reservationPeriod: 0,
   });
   const [previousClosePrice, setPreviousClosePrice] = useState<number>(0);
-  const [yesterdaySell, setYesterdaySell] = useState<SoXLTrade | undefined>(
+  const [yesterdaySell, setYesterdaySell] = useState<Trade | undefined>(
     undefined
   );
-  const [zeroDayTrades, setZeroDayTrades] = useState<SoXLTrade[]>([]);
+  const [zeroDayTrades, setZeroDayTrades] = useState<Trade[]>([]);
   const [modes, setModes] = useState<ApiModeItem[]>([]);
 
   useEffect(() => {
@@ -93,8 +80,6 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
   }, [mode]);
 
   useEffect(() => {
-    if (!settings) return;
-
     const fetchData = async () => {
       const { data, error } = await supabase
         .from("stock_prices")
@@ -107,7 +92,12 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
         return;
       }
 
-      setClosingPrices(data.prices);
+      setClosingPrices(
+        data.prices.map((p: any) => ({
+          date: p.date,
+          price: p.price,
+        }))
+      );
     };
 
     fetchData();
@@ -162,13 +152,6 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
     }
   };
 
-  useEffect(() => {
-    const today = new Date().toISOString().split("T")[0];
-    calculateModeForDate(today)
-      .then((calculatedMode) => setMode(calculatedMode))
-      .catch((error) => console.error("Error calculating mode:", error));
-  }, []);
-
   const handleUpdateSeed = (newSeed: number) => {
     setCurrentSeed(newSeed);
   };
@@ -182,11 +165,11 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
     }
   };
 
-  const handleUpdateYesterdaySell = (sell: SoXLTrade) => {
+  const handleUpdateYesterdaySell = (sell: Trade) => {
     setYesterdaySell(sell);
   };
 
-  const handleZeroDayTradesUpdate = (zTrades: SoXLTrade[]) => {
+  const handleZeroDayTradesUpdate = (zTrades: Trade[]) => {
     console.log("▶ MainPage에서 받은 zeroDayTrades:", zTrades);
     setZeroDayTrades(zTrades);
   };
@@ -265,7 +248,7 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
             onCalculate={handleCalculate}
             mode={mode}
             settings={settings as AppSettings}
-            closingPrices={closingPrices as PriceEntry[]}
+            closingPrices={closingPrices}
             yesterdaySell={yesterdaySell}
             zeroDayTrades={zeroDayTrades}
           />
