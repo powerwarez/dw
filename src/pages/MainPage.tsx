@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import TradeCalculator from "../components/TradeCalculator";
 import InvestmentSettings from "../components/InvestmentSettings";
 import TradeHistory from "../components/TradeHistory";
-import { FaBars } from "react-icons/fa";
+import { FaBars, FaSpinner } from "react-icons/fa";
 import { calculateModeForDate } from "../components/ModeCalculator";
 import supabase from "../utils/supabase";
 import { Session } from "@supabase/supabase-js";
@@ -120,6 +120,7 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
           throw new Error("Failed to fetch modes data");
         }
         const data: ApiResponse = await response.json();
+        console.log("API data:", data);
         setModes(data.mode);
       } catch (error) {
         console.error("Error fetching modes:", error);
@@ -180,6 +181,9 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
     // ...
   };
 
+  // modes 배열에 데이터가 있다면 마지막 항목의 모드를 "이번주 모드"로 삼는다.
+  const lastMode = modes.length > 0 ? modes[modes.length - 1].mode : "safe";
+
   if (!settings) {
     return <div>Loading...</div>;
   }
@@ -208,10 +212,10 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
             <h3 className="text-lg mb-2">이번주 모드</h3>
             <div
               className={`text-4xl font-bold rounded ${
-                mode === "safe" ? "text-yellow-400" : "text-red-400"
+                lastMode === "safe" ? "text-yellow-400" : "text-red-400"
               }`}
             >
-              {mode === "safe" ? "안전 모드" : "공세 모드"}
+              {lastMode === "safe" ? "안전 모드" : "공세 모드"}
             </div>
           </div>
           <InvestmentSettings
@@ -239,18 +243,19 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
       >
         {/* Main content */}
         <main className="w-full h-full pt-16 px-4 md:px-8 overflow-y-auto">
-          <div className="w-full">
-            <TradeCalculator
-              calculation={calculation}
-              initialInvestment={settings.initialInvestment}
-              currentSeed={currentSeed}
-              onCalculate={handleCalculate}
-              mode={mode}
-              settings={settings}
-              closingPrices={closingPrices}
-              yesterdaySell={yesterdaySell}
-              zeroDayTrades={zeroDayTrades}
-            />
+          <TradeCalculator
+            calculation={calculation}
+            initialInvestment={settings.initialInvestment}
+            currentSeed={currentSeed}
+            onCalculate={handleCalculate}
+            mode={mode}
+            settings={settings}
+            closingPrices={closingPrices}
+            yesterdaySell={yesterdaySell}
+            zeroDayTrades={zeroDayTrades}
+          />
+          {/* modes가 로딩 완료될 때까지만 대기 */}
+          {modes && modes.length > 0 ? (
             <TradeHistory
               closingPrices={closingPrices}
               settings={settings}
@@ -261,7 +266,12 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
               onTradesUpdate={handleTradesUpdate}
               modes={modes}
             />
-          </div>
+          ) : (
+            <div className="text-center text-white p-4">
+              <p>거래 내역을 생성 중입니다</p>
+              <FaSpinner className="animate-spin w-8 h-8 mx-auto" />
+            </div>
+          )}
         </main>
       </div>
       <button onClick={handleSaveSettings}>Save Settings</button>

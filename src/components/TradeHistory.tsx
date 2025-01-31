@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { FaPencilAlt, FaCheck } from "react-icons/fa";
+import { FaPencilAlt, FaCheck, FaSpinner } from "react-icons/fa";
 
 interface PriceEntry {
   date: string;
@@ -65,6 +65,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
   onZeroDayTradesUpdate,
   modes,
 }) => {
+  const [isModeLoading, setIsModeLoading] = useState(false);
   const [trades, setTrades] = useState<Trade[]>([]);
   const [editPriceIndex, setEditPriceIndex] = useState<number | null>(null);
   const [editQuantityIndex, setEditQuantityIndex] = useState<number | null>(
@@ -75,6 +76,45 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
   const [dailyProfits, setDailyProfits] = useState<{ [date: string]: number }>(
     {}
   );
+  const [cachedModes, setCachedModes] = useState<ModeItem[] | null>(null);
+
+  async function waitForModes(
+    initModes: ModeItem[] | null
+  ): Promise<ModeItem[] | null> {
+    if (cachedModes && cachedModes.length > 0) {
+      console.log("이미 cachedModes가 있으므로 재사용");
+      return cachedModes;
+    }
+    setIsModeLoading(true);
+    console.log("modes 대기 시작");
+    while (!initModes || initModes.length === 0) {
+      console.log("[DEBUG] 모드 정보가 없어서 1초 대기");
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+    setIsModeLoading(false);
+    console.log("modes 대기 완료, cachedModes 저장");
+    setCachedModes(initModes);
+    return initModes;
+  }
+
+  function findModeForDateNoWait(
+    targetDateStr: string,
+    sortedModes: ModeItem[]
+  ): "safe" | "aggressive" {
+    let decidedMode: "safe" | "aggressive" = "safe";
+    for (let i = 0; i < sortedModes.length; i++) {
+      const modeStartTime = new Date(sortedModes[i].date).getTime();
+      const modeEffectiveTime = modeStartTime + 24 * 60 * 60 * 1000;
+      const targetTime = new Date(targetDateStr).getTime();
+
+      if (modeEffectiveTime <= targetTime) {
+        decidedMode = sortedModes[i].mode;
+      } else {
+        break;
+      }
+    }
+    return decidedMode;
+  }
 
   useEffect(() => {
     const fetchTrades = async () => {
@@ -82,17 +122,21 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
       const startDateObj = new Date(startDateStr);
       const today = new Date();
 
-      // (A) for 루프 전체에서 공유할 seed 변수
       let updatedSeed = currentSeed;
-      let tradeIndex = 1;
+      let tradeIndex = 2;
 
       const newTrades: Trade[] = [];
-      const dailyProfitMap: { [date: string]: number } = {};
+      const dailyProfitMap: {
+        [date: string]: { totalProfit: number; tradeIndex: number };
+      } = {};
       let tradeCount = 0;
-      let dailyprofitTenDaySum = 0; // 10트레이드마다 수익 합산할 변수 예시
+      let dailyprofitTenDaySum = 0;
 
-      // 트레이드를 생성하는 전체 루프 시작
-      // 트레이드 생성 시작 //////////////////////////////
+      const finalModes = await waitForModes(modes || null);
+      const sortedModes = finalModes
+        ? [...finalModes].sort((a, b) => a.date.localeCompare(b.date))
+        : [];
+
       for (let index = 0; index < closingPrices.length; index++) {
         const priceEntry = closingPrices[index];
         const rawBuyDateObj = new Date(priceEntry.date);
@@ -103,11 +147,11 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         const buyDateStr = rawBuyDateObj.toISOString().split("T")[0];
         console.log(`[DEBUG]${buyDateStr} 트레이드 생성 시작`);
 
-        let decidedMode: "safe" | "aggressive" = "safe";
-        const matchedModeItem = modes?.find((m) => m.date === buyDateStr);
-        if (matchedModeItem) {
-          decidedMode = matchedModeItem.mode;
-        }
+        const decidedMode: "safe" | "aggressive" = findModeForDateNoWait(
+          buyDateStr,
+          sortedModes
+        );
+
         const mode = decidedMode;
 
         const currentPrice = parseFloat(priceEntry.price);
@@ -119,7 +163,6 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
             ? settings.safeBuyPercent
             : settings.aggressiveBuyPercent;
         const targetBuyPrice = previousClosePrice * (1 + buyPercent / 100);
-
         let actualBuyPrice = 0;
         if (currentPrice <= targetBuyPrice) {
           actualBuyPrice = currentPrice;
@@ -146,14 +189,12 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
           actualwithdrawalAmount: 0,
         };
 
-        // 매도 목표가
         const sellPercent =
           mode === "safe"
             ? settings.safeSellPercent
             : settings.aggressiveSellPercent;
         trade.targetSellPrice = actualBuyPrice * (1 + sellPercent / 100);
 
-        // 매도 시점 찾기
         let sellFound = false;
         for (let i = index + 1; i < closingPrices.length; i++) {
           const futurePriceEntry = closingPrices[i];
@@ -171,17 +212,19 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
             trade.profit =
               (trade.actualSellPrice - trade.actualBuyPrice) * trade.quantity;
 
-            // dailyProfitMap에 누적
-            if (futureSellDateObj >= startDateObj) {
-              if (!dailyProfitMap[futureSellDateStr]) {
-                dailyProfitMap[futureSellDateStr] = 0;
-              }
-              dailyProfitMap[futureSellDateStr] += trade.profit || 0;
+            if (!dailyProfitMap[futureSellDateStr]) {
+              dailyProfitMap[futureSellDateStr] = {
+                totalProfit: 0,
+                tradeIndex: 0,
+              };
             }
-            // (추가) 업데이트된 dailyProfitMap[futureSellDateStr]을 바로 확인
+            dailyProfitMap[futureSellDateStr].totalProfit += trade.profit || 0;
+            dailyProfitMap[futureSellDateStr].tradeIndex =
+              trade.tradeIndex || 0;
+
             console.log(
               `[DEBUG] 매도일: ${futureSellDateStr}, 매도가: ${futurePrice}, `,
-              `dailyProfitMap[${futureSellDateStr}] = ${dailyProfitMap[futureSellDateStr]}`
+              `dailyProfitMap[${futureSellDateStr}] = ${dailyProfitMap[futureSellDateStr].totalProfit}`
             );
 
             sellFound = true;
@@ -189,12 +232,11 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
             break;
           }
         }
-        trade.dailyProfit = dailyProfitMap[trade.buyDate] || 0;
+        trade.dailyProfit = dailyProfitMap[trade.buyDate]?.totalProfit || 0;
         console.log(
           `[DEBUG]dailyProfitMap[${trade.buyDate}] = ${trade.dailyProfit}`
         );
 
-        // ------------ daysUntilSell 계산 로직 ------------
         const buyTime = new Date(trade.buyDate).getTime();
         const todayTime = today.getTime();
         const daysPassed = Math.floor(
@@ -206,29 +248,22 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
             ? settings.safeMaxDays
             : settings.aggressiveMaxDays;
 
-        // "sellDate가 없으면" 아직 안 팔린 것
         if (!trade.sellDate) {
-          // 남은 날짜 = maxDays - 실제 경과 일수(음수면 0 처리)
           const remaining = maxDays - daysPassed;
           trade.daysUntilSell = Math.max(0, remaining);
         } else {
-          // 매도 날짜가 있는 경우:
           if (trade.quantity - (trade.sellQuantity || 0) === 0) {
-            // 전량 매도되었으면 0
             trade.daysUntilSell = 0;
           } else {
-            // 부분만 매도라면 "남은 날짜 = maxDays - 경과 일수"
             const remaining = maxDays - daysPassed;
             trade.daysUntilSell = Math.max(0, remaining);
           }
         }
-        // -----------------------------------------------
 
-        // (C) 예시: 10번째 트레이드가 만들어질 때마다 dailyprofitTenDaySum 계산 후 updatedSeed 갱신
-        if ((tradeIndex + 1) % 10 === 0) {
-          // 일례로, 10개 구간의 누적 수익
+        if (tradeIndex % 10 === 0) {
           dailyprofitTenDaySum = Object.entries(dailyProfitMap).reduce(
-            (sum, [date, val]) => (date <= trade.buyDate ? sum + val : sum),
+            (sum, [date, val]) =>
+              date <= trade.buyDate ? sum + val.totalProfit : sum,
             0
           );
           trade.actualwithdrawalAmount = trade.withdrawalAmount;
@@ -244,10 +279,11 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
             "기존 seedForDay(=updatedSeed):",
             updatedSeed,
             "dailyprofitTenDaySum:",
-            dailyprofitTenDaySum
+            dailyprofitTenDaySum,
+            "dailyProfitMap:",
+            dailyProfitMap
           );
 
-          // (D) 꼭 곱셈(*)을 사용해야 함!
           if (dailyprofitTenDaySum > 0) {
             if (dailyprofitTenDaySum - (trade.withdrawalAmount || 0) > 0) {
               dailyprofitTenDaySum -= trade.withdrawalAmount || 0;
@@ -265,7 +301,6 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
             updatedSeed += 0;
           }
 
-          // 이번 트레이드에 반영
           trade.seedForDay = updatedSeed;
 
           console.log(
@@ -277,16 +312,11 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
             "갱신된 updatedSeed:",
             updatedSeed
           );
-
-          // dailyProfitMap을 다시 초기화해주고 싶다면 여기서 해도 됨
-          // dailyProfitMap = {};
         }
         tradeIndex++;
         newTrades.push(trade);
       }
-      // 트레이드 생성 종료 //////////////////////////////
 
-      // 현재 trades와 동일하면 setTrades/onTradesUpdate를 생략
       if (JSON.stringify(newTrades) !== JSON.stringify(trades)) {
         setTrades(newTrades);
         if (onTradesUpdate) {
@@ -309,14 +339,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     };
 
     fetchTrades();
-  }, [
-    closingPrices,
-    currentSeed,
-    settings,
-    onUpdateYesterdaySell,
-    onTradesUpdate,
-    modes,
-  ]);
+  }, [closingPrices, currentSeed, settings, modes]);
 
   const handleEditPriceClick = (index: number) => {
     setEditPriceIndex(index);
@@ -360,7 +383,6 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
           (sellQuantity as number);
         updatedTrade.dailyProfit = updatedTrade.profit;
 
-        // sellQuantity가 변경되었을 때 daysUntilSell 업데이트
         if (field === "sellQuantity") {
           updatedTrade.daysUntilSell =
             updatedTrade.quantity - sellQuantity !== 0
@@ -397,7 +419,13 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
       <h2 className="text-xl mb-4">거래 내역</h2>
       <div className="bg-gray-700 p-4 rounded">
         {trades.length === 0 ? (
-          <p>거래 내역이 없습니다.</p>
+          isModeLoading ? (
+            <div className="text-center text-white p-4">
+              <FaSpinner className="animate-spin w-8 h-8 mx-auto" />
+            </div>
+          ) : (
+            <p>거래 내역이 없습니다.</p>
+          )
         ) : (
           <table className="w-full">
             <thead>
