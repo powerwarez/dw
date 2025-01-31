@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { calculateModeForDate } from "../components/ModeCalculator";
 import { FaPencilAlt, FaCheck } from "react-icons/fa";
 
 interface PriceEntry {
@@ -21,6 +20,11 @@ interface Settings {
   aggressiveSellPercent: number;
   aggressiveMaxDays: number;
   withdrawalAmount: number;
+}
+
+interface ModeItem {
+  date: string;
+  mode: "safe" | "aggressive";
 }
 
 interface Trade {
@@ -48,6 +52,8 @@ interface TradeHistoryProps {
   currentSeed: number;
   onUpdateYesterdaySell: (sell: Trade) => void;
   onTradesUpdate?: (trades: Trade[]) => void;
+  onZeroDayTradesUpdate?: (trades: Trade[]) => void;
+  modes?: ModeItem[];
 }
 
 const TradeHistory: React.FC<TradeHistoryProps> = ({
@@ -56,11 +62,10 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
   currentSeed,
   onUpdateYesterdaySell,
   onTradesUpdate,
+  onZeroDayTradesUpdate,
+  modes,
 }) => {
   const [trades, setTrades] = useState<Trade[]>([]);
-  const [weeklyModes, setWeeklyModes] = useState<{
-    [key: string]: "safe" | "aggressive";
-  }>({});
   const [editPriceIndex, setEditPriceIndex] = useState<number | null>(null);
   const [editQuantityIndex, setEditQuantityIndex] = useState<number | null>(
     null
@@ -72,45 +77,6 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
   );
 
   useEffect(() => {
-    const calculateWeeklyModes = async () => {
-      const today = new Date();
-      const oneMonthAgo = new Date(today);
-      oneMonthAgo.setMonth(today.getMonth() - 1);
-
-      const currentMonday = new Date(oneMonthAgo);
-      currentMonday.setDate(
-        currentMonday.getDate() - currentMonday.getDay() + 1
-      );
-
-      const modes: { [key: string]: "safe" | "aggressive" } = {};
-
-      while (currentMonday <= today) {
-        const mode = await calculateModeForDate(
-          currentMonday.toISOString().split("T")[0]
-        );
-        modes[currentMonday.toISOString().split("T")[0]] = mode;
-
-        const weekEndDate = new Date(currentMonday);
-        weekEndDate.setDate(weekEndDate.getDate() + 6);
-        const currentDate = new Date(currentMonday);
-
-        while (currentDate <= weekEndDate && currentDate <= today) {
-          modes[currentDate.toISOString().split("T")[0]] = mode;
-          currentDate.setDate(currentDate.getDate() + 1);
-        }
-
-        currentMonday.setDate(currentMonday.getDate() + 7);
-      }
-
-      setWeeklyModes(modes);
-    };
-
-    calculateWeeklyModes();
-  }, []);
-
-  useEffect(() => {
-    if (!weeklyModes || Object.keys(weeklyModes).length === 0) return;
-
     const fetchTrades = async () => {
       const startDateStr = settings.startDate;
       const startDateObj = new Date(startDateStr);
@@ -136,7 +102,14 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
 
         const buyDateStr = rawBuyDateObj.toISOString().split("T")[0];
         console.log(`[DEBUG]${buyDateStr} 트레이드 생성 시작`);
-        const mode = weeklyModes[buyDateStr] || "safe";
+
+        let decidedMode: "safe" | "aggressive" = "safe";
+        const matchedModeItem = modes?.find((m) => m.date === buyDateStr);
+        if (matchedModeItem) {
+          decidedMode = matchedModeItem.mode;
+        }
+        const mode = decidedMode;
+
         const currentPrice = parseFloat(priceEntry.price);
         const previousClosePrice =
           index > 0 ? parseFloat(closingPrices[index - 1].price) : currentPrice;
@@ -158,7 +131,6 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
             )
           : 0;
 
-        // (B) trade.seedForDay는 항상 현재 updatedSeed 사용
         const trade: Trade = {
           tradeIndex: tradeIndex,
           buyDate: buyDateStr,
@@ -339,10 +311,11 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     fetchTrades();
   }, [
     closingPrices,
-    weeklyModes,
     currentSeed,
     settings,
     onUpdateYesterdaySell,
+    onTradesUpdate,
+    modes,
   ]);
 
   const handleEditPriceClick = (index: number) => {

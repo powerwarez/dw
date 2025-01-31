@@ -21,6 +21,17 @@ interface Trade {
   daysUntilSell: number;
 }
 
+interface ApiModeItem {
+  date: string;
+  mode: "safe" | "aggressive";
+}
+
+interface ApiResponse {
+  id: number;
+  mode: ApiModeItem[];
+  inserted_at: string;
+}
+
 interface MainPageProps {
   session: { user?: { id: string; email: string } };
 }
@@ -42,6 +53,7 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
   );
   const [zeroDayTrades, setZeroDayTrades] = useState<Trade[]>([]);
   const [allTrades, setAllTrades] = useState<Trade[]>([]);
+  const [modes, setModes] = useState<ApiModeItem[]>([]);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -98,6 +110,25 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
     }
   }, [closingPrices, previousClosePrice]);
 
+  useEffect(() => {
+    const fetchModes = async () => {
+      try {
+        const response = await fetch(
+          "https://mode-api-powerwarezs-projects.vercel.app/api"
+        );
+        if (!response.ok) {
+          throw new Error("Failed to fetch modes data");
+        }
+        const data: ApiResponse = await response.json();
+        setModes(data.mode);
+      } catch (error) {
+        console.error("Error fetching modes:", error);
+      }
+    };
+
+    fetchModes();
+  }, []);
+
   const handleSettingsChange = (field: string, value: number | string) => {
     setSettings((prevSettings: any) => ({
       ...prevSettings,
@@ -143,6 +174,10 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
   const handleZeroDayTradesUpdate = (zTrades: Trade[]) => {
     console.log("▶ MainPage에서 받은 zeroDayTrades:", zTrades);
     setZeroDayTrades(zTrades);
+  };
+
+  const handleTradesUpdate = (newTrades: any[]) => {
+    // ...
   };
 
   if (!settings) {
@@ -223,6 +258,8 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
               onUpdateSeed={handleUpdateSeed}
               onUpdateYesterdaySell={handleUpdateYesterdaySell}
               onZeroDayTradesUpdate={handleZeroDayTradesUpdate}
+              onTradesUpdate={handleTradesUpdate}
+              modes={modes}
             />
           </div>
         </main>
