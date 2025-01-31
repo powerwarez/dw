@@ -3,7 +3,7 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { FaPencilAlt, FaCheck, FaSpinner } from "react-icons/fa";
 
-interface PriceEntry {
+export interface PriceEntry {
   date: string;
   price: string;
 }
@@ -27,7 +27,7 @@ interface ModeItem {
   mode: "safe" | "aggressive";
 }
 
-interface Trade {
+export interface Trade {
   tradeIndex: number;
   buyDate: string;
   mode: string;
@@ -46,10 +46,11 @@ interface Trade {
   actualwithdrawalAmount?: number;
 }
 
-interface TradeHistoryProps {
+export interface TradeHistoryProps {
   closingPrices: PriceEntry[];
   settings: Settings;
   currentSeed: number;
+  onUpdateSeed?: (newSeed: number) => void;
   onUpdateYesterdaySell: (sell: Trade) => void;
   onTradesUpdate?: (trades: Trade[]) => void;
   onZeroDayTradesUpdate?: (trades: Trade[]) => void;
@@ -60,6 +61,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
   closingPrices,
   settings,
   currentSeed,
+  onUpdateSeed,
   onUpdateYesterdaySell,
   onTradesUpdate,
   // onZeroDayTradesUpdate,

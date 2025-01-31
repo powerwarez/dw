@@ -5,7 +5,7 @@ import TradeHistory from "../components/TradeHistory";
 import { FaBars, FaSpinner } from "react-icons/fa";
 import supabase from "../utils/supabase";
 import { Session } from "@supabase/supabase-js";
-import type { Trade, PriceEntry } from "../components/TradeHistory";
+import { Trade, PriceEntry } from "../components/TradeHistory";
 // import settings from "../data/settings.json";
 
 interface ApiModeItem {
@@ -32,6 +32,7 @@ interface AppSettings {
   aggressiveSellPercent: number;
   withdrawalAmount: number;
   aggressiveBuyPercent: number;
+  [key: string]: string | number | boolean;
 }
 
 interface MainPageProps {
@@ -43,7 +44,7 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [closingPrices, setClosingPrices] = useState<PriceEntry[]>([]);
   const [currentSeed, setCurrentSeed] = useState<number>(10000);
-  const [mode, setMode] = useState<"safe" | "aggressive">("safe");
+  const [mode] = useState<"safe" | "aggressive">("safe");
   const [calculation, setCalculation] = useState({
     targetPrice: 0,
     buyAmount: 0,
