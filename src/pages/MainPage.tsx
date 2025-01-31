@@ -32,7 +32,7 @@ interface AppSettings {
   aggressiveSellPercent: number;
   withdrawalAmount: number;
   aggressiveBuyPercent: number;
-  [key: string]: string | number | boolean;
+  [key: string]: string | number;
 }
 
 interface MainPageProps {

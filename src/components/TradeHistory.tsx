@@ -50,7 +50,7 @@ export interface TradeHistoryProps {
   closingPrices: PriceEntry[];
   settings: Settings;
   currentSeed: number;
-  onUpdateSeed?: (newSeed: number) => void;
+  // onUpdateSeed?: (newSeed: number) => void;
   onUpdateYesterdaySell: (sell: Trade) => void;
   onTradesUpdate?: (trades: Trade[]) => void;
   onZeroDayTradesUpdate?: (trades: Trade[]) => void;
@@ -61,7 +61,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
   closingPrices,
   settings,
   currentSeed,
-  onUpdateSeed,
+  // onUpdateSeed,
   onUpdateYesterdaySell,
   onTradesUpdate,
   // onZeroDayTradesUpdate,
