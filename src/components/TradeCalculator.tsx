@@ -36,18 +36,13 @@ interface TradeCalculatorProps {
   onCalculate: (initialInvestment: number, currentSeed: number) => void;
   mode: "safe" | "aggressive";
   settings: Settings;
-  trades: Trade[];
+  trades?: Trade[];
   yesterdaySell?: Trade;
   closingPrices: PriceEntry[];
   zeroDayTrades?: Trade[];
 }
 
 // 거래일 계산을 위한 유틸리티 함수들
-const isWeekend = (date: Date): boolean => {
-  const day = date.getDay();
-  return day === 0 || day === 6; // 0은 일요일, 6은 토요일
-};
-
 const getNthDayOfWeek = (
   year: number,
   month: number,

@@ -1,6 +1,5 @@
-interface ModeCalculatorProps {
-  date: string; // YYYY-MM-DD 형식의 날짜
-}
+// 쓰이지 않는다면 완전히 제거하거나,
+// 필요한 경우 export해서 실제로 import되어 사용되도록 처리
 
 function thisWeekMode(
   qqqRsiLate: number,

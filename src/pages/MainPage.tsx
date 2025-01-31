@@ -5,8 +5,8 @@ import TradeHistory from "../components/TradeHistory";
 import { FaBars, FaSpinner } from "react-icons/fa";
 import { calculateModeForDate } from "../components/ModeCalculator";
 import supabase from "../utils/supabase";
-import { Session } from "@supabase/supabase-js";
-import settings from "../data/settings.json";
+// import { Session } from "@supabase/supabase-js";
+// import settings from "../data/settings.json";
 
 interface Trade {
   buyDate: string;
@@ -33,7 +33,7 @@ interface ApiResponse {
 }
 
 interface MainPageProps {
-  session: { user?: { id: string; email: string } };
+  session?: { user?: { id: string; email: string } };
 }
 
 const MainPage: React.FC<MainPageProps> = ({ session }) => {
@@ -141,7 +141,7 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
     try {
       await supabase
         .from("settings")
-        .upsert({ user_id: session.user?.id, ...settings });
+        .upsert({ user_id: session?.user?.id, ...settings });
       console.log("Settings saved successfully");
     } catch (error) {
       console.error("Failed to save settings:", error);
@@ -276,7 +276,7 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
       </div>
       <button onClick={handleSaveSettings}>Save Settings</button>
       <div>
-        {session.user ? (
+        {session?.user ? (
           <p>Logged in as: {session.user.email}</p>
         ) : (
           <p>No user logged in</p>
