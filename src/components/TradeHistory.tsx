@@ -64,7 +64,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
   // onUpdateSeed,
   onUpdateYesterdaySell,
   onTradesUpdate,
-  // onZeroDayTradesUpdate,
+  onZeroDayTradesUpdate,
   modes,
 }) => {
   const [isModeLoading, setIsModeLoading] = useState(false);
@@ -79,6 +79,12 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
   //   {}
   // );
   const [cachedModes, setCachedModes] = useState<ModeItem[] | null>(null);
+
+  // 출금액 수정용 상태값
+  const [editWithdrawalIndex, setEditWithdrawalIndex] = useState<number | null>(
+    null
+  );
+  const [tempWithdrawal, setTempWithdrawal] = useState<number | null>(null);
 
   async function waitForModes(
     initModes: ModeItem[] | null
@@ -118,7 +124,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     const fetchTrades = async () => {
       const startDateStr = settings.startDate;
       const startDateObj = new Date(startDateStr);
-      const today = new Date();
+      // const today = new Date();
 
       let updatedSeed = currentSeed;
       let tradeIndex = 2;
@@ -127,7 +133,6 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
       const dailyProfitMap: {
         [date: string]: { totalProfit: number; tradeIndex: number };
       } = {};
-      let tradeCount = 0;
       let dailyprofitTenDaySum = 0;
 
       const finalModes = await waitForModes(modes || null);
@@ -149,7 +154,6 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
           buyDateStr,
           sortedModes
         );
-
         const mode = decidedMode;
 
         const currentPrice = parseFloat(priceEntry.price);
@@ -223,95 +227,123 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
               `[DEBUG] 매도일: ${futureSellDateStr}, 매도가: ${futurePrice}, `,
               `dailyProfitMap[${futureSellDateStr}] = ${dailyProfitMap[futureSellDateStr].totalProfit}`
             );
-
-            tradeCount++;
             break;
           }
         }
         trade.dailyProfit = dailyProfitMap[trade.buyDate]?.totalProfit || 0;
-        console.log(
-          `[DEBUG]dailyProfitMap[${trade.buyDate}] = ${trade.dailyProfit}`
-        );
 
-        const buyTime = new Date(trade.buyDate).getTime();
-        const todayTime = today.getTime();
-        const daysPassed = Math.floor(
-          (todayTime - buyTime) / (1000 * 60 * 60 * 24)
-        );
-
-        const maxDays =
+        // 현재 트레이드의 남은 날짜는 해당 모드의 최대 거래일로 설정 (자신의 구매일 기준 차이는 0)
+        const currentTradeMaxDays =
           trade.mode === "safe"
             ? settings.safeMaxDays
             : settings.aggressiveMaxDays;
+        trade.daysUntilSell = currentTradeMaxDays;
 
-        if (!trade.sellDate) {
-          const remaining = maxDays - daysPassed;
-          trade.daysUntilSell = Math.max(0, remaining);
-        } else {
-          if (trade.quantity - (trade.sellQuantity || 0) === 0) {
-            trade.daysUntilSell = 0;
-          } else {
-            const remaining = maxDays - daysPassed;
-            trade.daysUntilSell = Math.max(0, remaining);
+        // 새로운 트레이드의 buyDate를 기준으로 이전에 생성된 매도되지 않은(unsold) 트레이드들의 남은 날짜를 재계산 및 자동 매도 처리
+        const currentTradeBuyDate = new Date(buyDateStr);
+        for (let i = 0; i < newTrades.length; i++) {
+          // 매도 날짜가 없는 트레이드들만 업데이트
+          if (!newTrades[i].sellDate) {
+            const previousTradeBuyDate = new Date(newTrades[i].buyDate);
+            const diffDays = Math.floor(
+              (currentTradeBuyDate.getTime() - previousTradeBuyDate.getTime()) /
+                (1000 * 60 * 60 * 24)
+            );
+            const previousTradeMaxDays =
+              newTrades[i].mode === "safe"
+                ? settings.safeMaxDays
+                : settings.aggressiveMaxDays;
+            newTrades[i].daysUntilSell = previousTradeMaxDays - diffDays;
+            if (newTrades[i].daysUntilSell < 0) {
+              newTrades[i].daysUntilSell = -1;
+              // 거래일 기준으로 만료일(expirationDate)을 계산하여, 만료일 다음 거래일의 closingPrice를 자동 매도에 사용
+              const tradeBuyDateStr = newTrades[i].buyDate;
+              // closingPrices 배열에서 거래일(newTrades[i].buyDate)에 해당하는 인덱스를 찾음
+              const buyIndex = closingPrices.findIndex(
+                (priceEntry) => priceEntry.date === tradeBuyDateStr
+              );
+              const tradeMaxDays =
+                newTrades[i].mode === "safe"
+                  ? settings.safeMaxDays
+                  : settings.aggressiveMaxDays;
+              if (buyIndex !== -1) {
+                // 만료일은 구매일 기준으로 tradeMaxDays 거래일 후에 해당되는 closingPrices entry임
+                const expirationIndex = buyIndex + tradeMaxDays;
+                if (expirationIndex < closingPrices.length) {
+                  const expirationDateStr = closingPrices[expirationIndex].date;
+                  // 자동 매도는 만료일(거래일 기준)로 진행함: autoSellIndex = expirationIndex (즉, 만료일의 closingPrice를 사용)
+                  const autoSellIndex = expirationIndex;
+                  if (autoSellIndex < closingPrices.length) {
+                    const autoSellPriceEntry = closingPrices[autoSellIndex];
+                    const autoSellPrice = parseFloat(autoSellPriceEntry.price);
+                    newTrades[i].sellDate = autoSellPriceEntry.date;
+                    newTrades[i].actualSellPrice = autoSellPrice;
+                    newTrades[i].sellQuantity = newTrades[i].quantity;
+                    newTrades[i].profit =
+                      (autoSellPrice - newTrades[i].actualBuyPrice) *
+                      newTrades[i].quantity;
+                    // 자동 매도 시 발생한 profit을 해당 sellDate의 dailyProfit에 누적
+                    const sellDate = newTrades[i].sellDate!;
+                    if (!dailyProfitMap[sellDate]) {
+                      dailyProfitMap[sellDate] = {
+                        totalProfit: 0,
+                        tradeIndex: newTrades[i].tradeIndex || 0,
+                      };
+                    }
+                    dailyProfitMap[sellDate].totalProfit +=
+                      newTrades[i].profit || 0;
+                    // newTrades[i].dailyProfit =
+                    //   dailyProfitMap[sellDate].totalProfit;
+                    console.log(
+                      `[DEBUG] 자동 매도 처리: ${newTrades[i].buyDate} 거래를 ${autoSellPriceEntry.date}의 종가 ${autoSellPrice}로 매도 처리되었으며, 해당 날짜의 dailyProfit에 profit이 누적되었습니다.`
+                    );
+                  } else {
+                    console.warn(
+                      `[WARN] ${newTrades[i].buyDate} 거래에 대한 자동 매도 처리 실패: 만료일(${expirationDateStr})에 해당하는 거래일을 찾을 수 없음`
+                    );
+                  }
+                } else {
+                  console.warn(
+                    `[WARN] ${newTrades[i].buyDate} 거래에 대한 자동 매도 처리 실패: 만료일 계산을 위해 충분한 거래일이 없음`
+                  );
+                }
+              } else {
+                console.warn(
+                  `[WARN] ${newTrades[i].buyDate}에 해당하는 closing price entry를 찾을 수 없음`
+                );
+              }
+            }
           }
         }
 
-        if ((tradeIndex - 1) % 10 === 0) {
-          dailyprofitTenDaySum = Object.entries(dailyProfitMap).reduce(
-            (sum, [date, val]) =>
-              new Date(date) <= new Date(trade.buyDate) &&
-              val.tradeIndex > tradeIndex - 10
-                ? sum + val.totalProfit
-                : sum,
+        if (newTrades.length % 10 === 0) {
+          const blockTrades = newTrades.slice(-10);
+          dailyprofitTenDaySum = blockTrades.reduce(
+            (sum, t) => sum + (t.dailyProfit || 0),
             0
           );
 
-          trade.actualwithdrawalAmount = trade.withdrawalAmount;
-          console.log(
-            "[DEBUG] 10번째 트레이드 도달",
-            "buyDate:",
-            buyDateStr,
-            "tradeIndex:",
-            tradeIndex,
-            "tradeCount:",
-            tradeCount,
-            "기존 seedForDay(=updatedSeed):",
-            updatedSeed,
-            "dailyprofitTenDaySum:",
-            dailyprofitTenDaySum,
-            "dailyProfitMap:",
-            dailyProfitMap
-          );
-
           if (dailyprofitTenDaySum > 0) {
-            if (dailyprofitTenDaySum - (trade.withdrawalAmount || 0) > 0) {
-              dailyprofitTenDaySum -= trade.withdrawalAmount || 0;
-              trade.actualwithdrawalAmount = trade.withdrawalAmount || 0;
-              updatedSeed +=
-                (dailyprofitTenDaySum * settings.profitCompounding) / 100;
-            } else {
-              trade.actualwithdrawalAmount = dailyprofitTenDaySum;
-              dailyprofitTenDaySum = 0;
-            }
+            updatedSeed +=
+              (dailyprofitTenDaySum * settings.profitCompounding) / 100;
+            console.log(
+              `[시드재계산+++] dailyprofitTenDaySum: ${dailyprofitTenDaySum}, updatedSeed: ${updatedSeed}`
+            );
           } else if (dailyprofitTenDaySum < 0) {
             updatedSeed +=
               (dailyprofitTenDaySum * settings.lossCompounding) / 100;
+            console.log(
+              `[시드재계산---] dailyprofitTenDaySum: ${dailyprofitTenDaySum}, updatedSeed: ${updatedSeed}`
+            );
           } else if (dailyprofitTenDaySum === 0) {
             updatedSeed += 0;
           }
+          // 인출금 반영
+          updatedSeed -= trade.actualwithdrawalAmount || 0;
 
           trade.seedForDay = updatedSeed;
-
-          console.log(
-            "[DEBUG] 10번째 트레이드 직후 seedForDay 갱신",
-            "buyDate:",
-            buyDateStr,
-            "tradeCount:",
-            tradeCount,
-            "갱신된 updatedSeed:",
-            updatedSeed
-          );
         }
+
         tradeIndex++;
         newTrades.push(trade);
       }
@@ -334,6 +366,16 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
       console.log("yesterdaySell:", yesterdaySell);
       if (yesterdaySell) {
         onUpdateYesterdaySell(yesterdaySell);
+      }
+
+      const newZeroDayTrades = newTrades.filter(
+        (trade) =>
+          trade.daysUntilSell === 0 &&
+          trade.quantity - (trade.sellQuantity || 0) !== 0
+      );
+      console.log("Zero Day Trades (before sending):", newZeroDayTrades);
+      if (onZeroDayTradesUpdate) {
+        onZeroDayTradesUpdate(newZeroDayTrades);
       }
     };
 
@@ -363,6 +405,20 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     }
     setEditQuantityIndex(null);
   };
+
+  // 출금액 편집 모드 시작
+  const handleEditWithdrawalClick = (index: number) => {
+    setEditWithdrawalIndex(index);
+    setTempWithdrawal(trades[index].actualwithdrawalAmount || 0);
+  };
+
+  const handleCheckWithdrawalClick = (index: number) => {
+    if (tempWithdrawal !== null) {
+      handleInputChange(index, "actualwithdrawalAmount", tempWithdrawal);
+    }
+    setEditWithdrawalIndex(null);
+  };
+  // 출금액 편집 모드 끝
 
   const handleInputChange = (
     index: number,
@@ -401,20 +457,17 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
       }
     }
 
+    // 출금액 변경 처리
+    if (field === "actualwithdrawalAmount") {
+      updatedTrade.actualwithdrawalAmount = Number(value);
+    }
+
     setTrades((prevTrades) => {
       const newTrades = [...prevTrades];
       newTrades[index] = updatedTrade;
       return newTrades;
     });
   };
-
-  const zeroDayTrades = trades.filter(
-    (trade) =>
-      trade.daysUntilSell <= 0 &&
-      trade.quantity - (trade.sellQuantity || 0) !== 0
-  );
-
-  console.log("Zero Day Trades (before sending):", zeroDayTrades);
 
   return (
     <div className="bg-gray-800 p-4 rounded">
@@ -508,6 +561,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                           onChange={(e) =>
                             setTempPrice(parseFloat(e.target.value))
                           }
+                          onWheel={(e) => e.preventDefault()}
                           className="bg-gray-600 p-1 rounded"
                         />
                       ) : (
@@ -541,6 +595,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                           onChange={(e) =>
                             setTempQuantity(parseFloat(e.target.value))
                           }
+                          onWheel={(e) => e.preventDefault()}
                           className="bg-gray-600 p-1 rounded"
                         />
                       ) : (
@@ -584,9 +639,46 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                     {trade.dailyProfit?.toFixed(2)}
                   </td>
                   <td className="text-center">
-                    {trade.actualwithdrawalAmount !== undefined
-                      ? trade.actualwithdrawalAmount
-                      : "-"}
+                    {trade.buyDate !== null ? (
+                      editWithdrawalIndex === index ? (
+                        <input
+                          type="number"
+                          value={tempWithdrawal || ""}
+                          onChange={(e) =>
+                            setTempWithdrawal(parseFloat(e.target.value))
+                          }
+                          onWheel={(e) => e.preventDefault()}
+                          className="bg-gray-600 p-1 rounded"
+                        />
+                      ) : (
+                        <span
+                          className={
+                            (index + 1) % 10 === 0
+                              ? "text-red-500 font-bold"
+                              : ""
+                          }
+                        >
+                          {trade.actualwithdrawalAmount}
+                        </span>
+                      )
+                    ) : (
+                      <span>-</span>
+                    )}
+                    {trade.actualBuyPrice > 0 && (
+                      <button
+                        onClick={() =>
+                          editWithdrawalIndex === index
+                            ? handleCheckWithdrawalClick(index)
+                            : handleEditWithdrawalClick(index)
+                        }
+                      >
+                        {editWithdrawalIndex === index ? (
+                          <FaCheck />
+                        ) : (
+                          <FaPencilAlt />
+                        )}
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

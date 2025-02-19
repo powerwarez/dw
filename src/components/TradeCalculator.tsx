@@ -159,6 +159,10 @@ const TradeCalculator: React.FC<TradeCalculatorProps> = ({
 
   const profitRate =
     ((currentSeed - initialInvestment) / initialInvestment) * 100;
+  console.log("zeroDayTrades(received):", zeroDayTrades);
+  console.log("currentSeed:", currentSeed);
+  console.log("initialInvestment:", initialInvestment);
+  console.log("profitRate:", profitRate);
 
   return (
     <div className="bg-gray-800 rounded-lg p-6 w-full">
@@ -207,59 +211,62 @@ const TradeCalculator: React.FC<TradeCalculatorProps> = ({
         </div>
         <div>
           <h2 className="text-xl mb-4">오늘의 매도</h2>
-          <div className="bg-gray-700 p-4 rounded flex justify-around">
-            {yesterdaySell && (
-              <div className="flex flex-col items-center mx-2 mb-4">
-                <h3 className="text-lg mb-2">매도가</h3>
-                <p className="text-xl font-bold text-blue-400">
-                  ${yesterdaySell.targetSellPrice?.toFixed(2)}
-                </p>
-                <h3 className="text-lg mb-2">수량</h3>
-                <p className="text-xl font-bold text-blue-400">
-                  {yesterdaySell.quantity}주
-                </p>
-                <h3 className="text-lg mb-2">기간</h3>
-                <p className="text-xl font-bold text-blue-400">
-                  ~
-                  {new Date(
-                    new Date().setDate(
-                      new Date().getDate() + yesterdaySell.daysUntilSell
-                    )
-                  ).toLocaleDateString("ko-KR", {
-                    month: "2-digit",
-                    day: "2-digit",
-                  })}
-                </p>
+          {yesterdaySell && (
+            <div className="bg-gray-700 p-4 rounded flex justify-around">
+              <div className="flex flex-row items-center space-x-8">
+                <div className="flex flex-col items-center">
+                  <h3 className="text-lg mb-2">매도가</h3>
+                  <p className="text-xl font-bold text-blue-400">
+                    ${yesterdaySell.targetSellPrice?.toFixed(2)}
+                  </p>
+                </div>
+                <div className="flex flex-col items-center">
+                  <h3 className="text-lg mb-2">수량</h3>
+                  <p className="text-xl font-bold text-blue-400">
+                    {yesterdaySell.quantity}주
+                  </p>
+                </div>
+                <div className="flex flex-col items-center">
+                  <h3 className="text-lg mb-2">기간</h3>
+                  <p className="text-xl font-bold text-blue-400">
+                    ~
+                    {new Date(
+                      new Date().setDate(
+                        new Date().getDate() + yesterdaySell.daysUntilSell
+                      )
+                    ).toLocaleDateString("ko-KR", {
+                      month: "2-digit",
+                      day: "2-digit",
+                    })}
+                  </p>
+                </div>
               </div>
-            )}
-            {zeroDayTrades && zeroDayTrades.length > 0 && (
-              <div>
-                {zeroDayTrades.map((trade, idx) => (
-                  <div
-                    key={idx}
-                    className="flex flex-col items-center mx-2 mb-4"
-                  >
-                    <h3 className="text-lg mb-2">매도가</h3>
-                    <p className="text-xl font-bold text-blue-400">
-                      {trade.targetSellPrice?.toFixed(2)}
-                    </p>
+            </div>
+          )}
+
+          {zeroDayTrades && zeroDayTrades.length > 0 && (
+            <div className="bg-gray-700 p-4 rounded flex justify-around">
+              {zeroDayTrades.map((trade, idx) => (
+                <div key={idx} className="flex flex-row items-center space-x-8">
+                  <div className="flex flex-col items-center">
                     <h3 className="text-lg mb-2">수량</h3>
                     <p className="text-xl font-bold text-blue-400">
                       {trade.quantity}주
                     </p>
+                  </div>
+                  <div className="flex flex-col items-center">
                     <h3 className="text-lg mb-2">기간</h3>
                     <p className="text-xl font-bold text-blue-400">MOC</p>
                   </div>
-                ))}
-              </div>
-            )}
-            {!yesterdaySell &&
-              (!zeroDayTrades || zeroDayTrades.length === 0) && (
-                <div className="text-center text-white p-4">
-                  <p>오늘 매도는 없습니다</p>
                 </div>
-              )}
-          </div>
+              ))}
+            </div>
+          )}
+          {!yesterdaySell && (!zeroDayTrades || zeroDayTrades.length === 0) && (
+            <div className="text-center text-white p-4">
+              <p>오늘 매도는 없습니다</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -44,6 +44,7 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [closingPrices, setClosingPrices] = useState<PriceEntry[]>([]);
   const [currentSeed, setCurrentSeed] = useState<number>(10000);
+  const [lastSeedForDay, setLastSeedForDay] = useState<number>(0);
   const [mode] = useState<"safe" | "aggressive">("safe");
   const [calculation, setCalculation] = useState({
     targetPrice: 0,
@@ -67,6 +68,7 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
         const data = await response.json();
         setSettings(data);
         setCurrentSeed(data.initialInvestment);
+        setLastSeedForDay(data.initialInvestment);
         setCalculation((prev) => ({
           ...prev,
           reservationPeriod:
@@ -94,7 +96,7 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
       }
 
       setClosingPrices(
-        data.prices.map((p: any) => ({
+        data.prices.map((p: { date: string; price: string }) => ({
           date: p.date,
           price: p.price,
         }))
@@ -121,6 +123,7 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
         const response = await fetch(
           "https://mode-api-powerwarezs-projects.vercel.app/api"
         );
+        console.log("API response:", response);
         if (!response.ok) {
           throw new Error("Failed to fetch modes data");
         }
@@ -153,9 +156,14 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
     }
   };
 
-  // const handleUpdateSeed = (newSeed: number) => {
-  //   setCurrentSeed(newSeed);
-  // };
+  const handleTradesUpdate = (updatedTrades: Trade[]) => {
+    if (updatedTrades.length > 0) {
+      const lastTradeSeed = updatedTrades[updatedTrades.length - 1]?.seedForDay;
+      if (lastTradeSeed !== undefined) {
+        setLastSeedForDay(lastTradeSeed);
+      }
+    }
+  };
 
   const handleCalculate = () => {
     if (previousClosePrice !== calculation.targetPrice) {
@@ -175,12 +183,6 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
     setZeroDayTrades(zTrades);
   };
 
-  // const handleTradesUpdate = (trades: Trade[]) => {
-  //   setTrades(trades);
-  //   console.log("▶ MainPage에서 받은 trades:", trades);
-  // };
-
-  // modes 배열에 데이터가 있다면 마지막 항목의 모드를 "이번주 모드"로 삼는다.
   const lastMode = modes.length > 0 ? modes[modes.length - 1].mode : "safe";
 
   if (!settings) {
@@ -245,7 +247,7 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
           <TradeCalculator
             calculation={calculation}
             initialInvestment={settings.initialInvestment}
-            currentSeed={currentSeed}
+            currentSeed={lastSeedForDay}
             onCalculate={handleCalculate}
             mode={mode}
             settings={settings as AppSettings}
@@ -259,10 +261,9 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
               closingPrices={closingPrices}
               settings={settings}
               currentSeed={currentSeed}
-              // onUpdateSeed={handleUpdateSeed}
               onUpdateYesterdaySell={handleUpdateYesterdaySell}
               onZeroDayTradesUpdate={handleZeroDayTradesUpdate}
-              // onTradesUpdate={handleTradesUpdate}
+              onTradesUpdate={handleTradesUpdate}
               modes={modes}
             />
           ) : (
