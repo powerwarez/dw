@@ -20,6 +20,7 @@ interface Settings {
   aggressiveSellPercent: number;
   aggressiveMaxDays: number;
   withdrawalAmount: number;
+  currentInvestment: number;
 }
 
 interface ModeItem {
@@ -49,7 +50,6 @@ export interface Trade {
 export interface TradeHistoryProps {
   closingPrices: PriceEntry[];
   settings: Settings;
-  currentSeed: number;
   onUpdateYesterdaySell: (sell: Trade) => void;
   onTradesUpdate?: (trades: Trade[]) => void;
   onZeroDayTradesUpdate?: (trades: Trade[]) => void;
@@ -61,7 +61,6 @@ export interface TradeHistoryProps {
 const TradeHistory: React.FC<TradeHistoryProps> = ({
   closingPrices,
   settings,
-  currentSeed,
   onUpdateYesterdaySell,
   onTradesUpdate,
   onZeroDayTradesUpdate,
@@ -123,7 +122,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
       const startDateStr = settings.startDate;
       const startDateObj = new Date(startDateStr);
 
-      let updatedSeed = currentSeed;
+      let updatedSeed = settings.currentInvestment;
       let tradeIndex = 2;
 
       const newTrades: Trade[] = [];
@@ -353,7 +352,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
       }
 
       // 계산된 updatedSeed를 부모 컴포넌트로 전달하여 currentSeed 업데이트를 요청
-      if (onSeedChange && updatedSeed !== currentSeed) {
+      if (onSeedChange && updatedSeed !== settings.currentInvestment) {
         onSeedChange(updatedSeed);
       }
 
@@ -382,7 +381,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     };
 
     fetchTrades();
-  }, [closingPrices, currentSeed, settings, modes]);
+  }, [closingPrices, settings, modes]);
 
   const handleEditPriceClick = (index: number) => {
     setEditPriceIndex(index);

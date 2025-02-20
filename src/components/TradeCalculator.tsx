@@ -12,6 +12,7 @@ interface Settings {
   safeBuyPercent: number;
   aggressiveBuyPercent: number;
   seedDivision: number;
+  currentInvestment: number;
 }
 
 interface Trade {
@@ -32,8 +33,6 @@ interface PriceEntry {
 interface TradeCalculatorProps {
   calculation: Calculation;
   initialInvestment: number;
-  currentSeed: number;
-  onCalculate: (initialInvestment: number, currentSeed: number) => void;
   mode: "safe" | "aggressive";
   settings: Settings;
   trades?: Trade[];
@@ -119,13 +118,11 @@ export const isHoliday = (date: Date): boolean => {
 };
 
 const TradeCalculator: React.FC<TradeCalculatorProps> = ({
-  // calculation,
+  calculation,
   initialInvestment,
-  currentSeed,
-  // onCalculate,
   mode,
   settings,
-  // trades = [],
+  trades,
   yesterdaySell,
   closingPrices,
   zeroDayTrades,
@@ -148,19 +145,19 @@ const TradeCalculator: React.FC<TradeCalculatorProps> = ({
       const calculatedTargetBuyPrice =
         previousClosePrice * (1 + buyPercent / 100);
       const calculatedBuyQuantity = Math.floor(
-        currentSeed / settings.seedDivision / calculatedTargetBuyPrice
+        settings.currentInvestment / settings.seedDivision / calculatedTargetBuyPrice
       );
 
       // 상태 업데이트
       setTargetBuyPrice(calculatedTargetBuyPrice);
       setBuyQuantity(calculatedBuyQuantity);
     }
-  }, [closingPrices, currentSeed, mode, settings]);
+  }, [closingPrices, settings.currentInvestment, mode, settings]);
 
   const profitRate =
-    ((currentSeed - initialInvestment) / initialInvestment) * 100;
+    ((settings.currentInvestment - initialInvestment) / initialInvestment) * 100;
   console.log("zeroDayTrades(received):", zeroDayTrades);
-  console.log("currentSeed:", currentSeed);
+  console.log("currentSeed:", settings.currentInvestment);
   console.log("initialInvestment:", initialInvestment);
   console.log("profitRate:", profitRate);
 
@@ -179,7 +176,7 @@ const TradeCalculator: React.FC<TradeCalculatorProps> = ({
         <div className="bg-gray-700 p-4 rounded">
           <h3 className="text-lg mb-2">현재 투자금</h3>
           <p className="text-2xl font-bold text-green-400">
-            ${currentSeed.toLocaleString()}
+            ${settings.currentInvestment.toLocaleString()}
           </p>
         </div>
         <div className="bg-gray-700 p-4 rounded">
