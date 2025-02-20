@@ -6,7 +6,6 @@ import { FaBars, FaSpinner } from "react-icons/fa";
 import supabase from "../utils/supabase";
 import { Session } from "@supabase/supabase-js";
 import { Trade, PriceEntry } from "../components/TradeHistory";
-// import settings from "../data/settings.json";
 
 interface ApiModeItem {
   date: string;
@@ -76,7 +75,7 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
 
   useEffect(() => {
     const fetchSettings = async () => {
-      if (!session?.user) {
+      if (!session || !session.user) {
         console.error("사용자 로그인이 필요합니다. 설정 데이터를 불러올 수 없습니다.");
         return;
       }
@@ -234,6 +233,24 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
   };
 
   const lastMode = modes.length > 0 ? modes[modes.length - 1].mode : "safe";
+
+  if (!session || !session.user) {
+    return (
+      <div className="w-screen h-screen bg-gray-900 text-white flex justify-center items-center">
+        <button
+          onClick={() =>
+            supabase.auth.signInWithOAuth({
+              provider: "kakao",
+              options: { redirectTo: window.location.origin },
+            })
+          }
+          className="px-4 py-2 bg-blue-500 rounded"
+        >
+          카카오로 로그인
+        </button>
+      </div>
+    );
+  }
 
   if (!settings) {
     return <div>Loading...</div>;
