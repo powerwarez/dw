@@ -120,19 +120,9 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
           }
           setSettings(defaultSettings);
           setTradeHistory([]);
-          setCalculation((prev) => ({
-            ...prev,
-            reservationPeriod:
-              mode === "safe" ? defaultSettings.safeMaxDays : defaultSettings.aggressiveMaxDays,
-          }));
         } else {
           setSettings(data.settings as AppSettings);
           setTradeHistory(data.tradehistory ? (data.tradehistory as Trade[]) : []);
-          setCalculation((prev) => ({
-            ...prev,
-            reservationPeriod:
-              mode === "safe" ? data.settings.safeMaxDays : data.settings.aggressiveMaxDays,
-          }));
         }
       } catch (error) {
         console.error("dynamicwave 테이블에서 설정 값을 불러오지 못했습니다:", error);
