@@ -50,37 +50,33 @@ export interface TradeHistoryProps {
   closingPrices: PriceEntry[];
   settings: Settings;
   currentSeed: number;
-  // onUpdateSeed?: (newSeed: number) => void;
   onUpdateYesterdaySell: (sell: Trade) => void;
   onTradesUpdate?: (trades: Trade[]) => void;
   onZeroDayTradesUpdate?: (trades: Trade[]) => void;
   modes?: ModeItem[];
+  initialTrades?: Trade[];
 }
 
 const TradeHistory: React.FC<TradeHistoryProps> = ({
   closingPrices,
   settings,
   currentSeed,
-  // onUpdateSeed,
   onUpdateYesterdaySell,
   onTradesUpdate,
   onZeroDayTradesUpdate,
   modes,
+  initialTrades = [],
 }) => {
   const [isModeLoading, setIsModeLoading] = useState(false);
-  const [trades, setTrades] = useState<Trade[]>([]);
+  const [trades, setTrades] = useState<Trade[]>(initialTrades);
   const [editPriceIndex, setEditPriceIndex] = useState<number | null>(null);
   const [editQuantityIndex, setEditQuantityIndex] = useState<number | null>(
     null
   );
   const [tempPrice, setTempPrice] = useState<number | null>(null);
   const [tempQuantity, setTempQuantity] = useState<number | null>(null);
-  // const [dailyProfits, setDailyProfits] = useState<{ [date: string]: number }>(
-  //   {}
-  // );
   const [cachedModes, setCachedModes] = useState<ModeItem[] | null>(null);
 
-  // 출금액 수정용 상태값
   const [editWithdrawalIndex, setEditWithdrawalIndex] = useState<number | null>(
     null
   );
@@ -124,7 +120,6 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     const fetchTrades = async () => {
       const startDateStr = settings.startDate;
       const startDateObj = new Date(startDateStr);
-      // const today = new Date();
 
       let updatedSeed = currentSeed;
       let tradeIndex = 2;
@@ -232,17 +227,14 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         }
         trade.dailyProfit = dailyProfitMap[trade.buyDate]?.totalProfit || 0;
 
-        // 현재 트레이드의 남은 날짜는 해당 모드의 최대 거래일로 설정 (자신의 구매일 기준 차이는 0)
         const currentTradeMaxDays =
           trade.mode === "safe"
             ? settings.safeMaxDays
             : settings.aggressiveMaxDays;
         trade.daysUntilSell = currentTradeMaxDays;
 
-        // 새로운 트레이드의 buyDate를 기준으로 이전에 생성된 매도되지 않은(unsold) 트레이드들의 남은 날짜를 재계산 및 자동 매도 처리
         const currentTradeBuyDate = new Date(buyDateStr);
         for (let i = 0; i < newTrades.length; i++) {
-          // 매도 날짜가 없는 트레이드들만 업데이트
           if (!newTrades[i].sellDate) {
             const previousTradeBuyDate = new Date(newTrades[i].buyDate);
             const diffDays = Math.floor(
@@ -292,8 +284,6 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                     }
                     dailyProfitMap[sellDate].totalProfit +=
                       newTrades[i].profit || 0;
-                    // newTrades[i].dailyProfit =
-                    //   dailyProfitMap[sellDate].totalProfit;
                     console.log(
                       `[DEBUG] 자동 매도 처리: ${newTrades[i].buyDate} 거래를 ${autoSellPriceEntry.date}의 종가 ${autoSellPrice}로 매도 처리되었으며, 해당 날짜의 dailyProfit에 profit이 누적되었습니다.`
                     );

@@ -62,6 +62,7 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
   const [closingPrices, setClosingPrices] = useState<PriceEntry[]>([]);
   const [currentSeed, setCurrentSeed] = useState<number>(10000);
   const [lastSeedForDay, setLastSeedForDay] = useState<number>(0);
+  const [tradeHistory, setTradeHistory] = useState<Trade[]>([]);
   const [mode] = useState<"safe" | "aggressive">("safe");
   const [calculation, setCalculation] = useState({
     targetPrice: 0,
@@ -91,10 +92,10 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
       }
 
       try {
-        // 동적wave 테이블에서 로그인한 사용자의 settings 데이터를 불러옴
+        // dynamicwave 테이블에서 로그인한 사용자의 settings와 tradehistory 데이터를 불러옴
         const { data, error } = await supabase
           .from("dynamicwave")
-          .select("settings")
+          .select("settings, tradehistory")
           .eq("user_id", localSession.user.id)
           .maybeSingle();
 
@@ -104,14 +105,15 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
 
         if (!data || !data.settings) {
           console.log("dynamicwave 테이블에 설정 데이터가 없습니다. 기본 설정값을 삽입합니다.");
-          // 설정 데이터가 없으면 기본 설정값을 삽입
+          // 설정 데이터가 없으면 기본 설정값을 삽입 (tradehistory는 빈 배열로 초기화)
           const { error: insertError } = await supabase
             .from("dynamicwave")
-            .insert({ user_id: localSession.user.id, settings: defaultSettings });
+            .insert({ user_id: localSession.user.id, settings: defaultSettings, tradehistory: [] });
           if (insertError) {
             console.error("기본 설정값 삽입 중 오류 발생:", insertError);
           }
           setSettings(defaultSettings);
+          setTradeHistory([]);
           setCurrentSeed(defaultSettings.initialInvestment);
           setLastSeedForDay(defaultSettings.initialInvestment);
           setCalculation((prev) => ({
@@ -121,6 +123,7 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
           }));
         } else {
           setSettings(data.settings as AppSettings);
+          setTradeHistory(data.tradehistory ? (data.tradehistory as Trade[]) : []);
           setCurrentSeed(data.settings.initialInvestment);
           setLastSeedForDay(data.settings.initialInvestment);
           setCalculation((prev) => ({
@@ -208,20 +211,47 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
     try {
       await supabase
         .from("dynamicwave")
-        .upsert({ user_id: localSession.user.id, settings });
+        .upsert({ user_id: localSession.user.id, settings, tradehistory: tradeHistory });
       console.log("설정이 성공적으로 저장되었습니다.");
     } catch (error) {
       console.error("설정 저장에 실패했습니다:", error);
     }
   };
 
-  const handleTradesUpdate = (updatedTrades: Trade[]) => {
+  const mergeTrades = (existingTrades: Trade[], newTrades: Trade[]): Trade[] => {
+    const mergedMap = new Map<number, Trade>();
+    for (const trade of existingTrades) {
+      mergedMap.set(trade.tradeIndex, trade);
+    }
+    for (const trade of newTrades) {
+      mergedMap.set(trade.tradeIndex, trade);
+    }
+    return Array.from(mergedMap.values()).sort((a, b) => a.tradeIndex - b.tradeIndex);
+  };
+
+  const handleTradesUpdate = async (updatedTrades: Trade[]) => {
     if (updatedTrades.length > 0) {
       const lastTradeSeed = updatedTrades[updatedTrades.length - 1]?.seedForDay;
       if (lastTradeSeed !== undefined) {
         setLastSeedForDay(lastTradeSeed);
       }
     }
+    // 병합: 기존 tradeHistory와 새롭게 계산된 내역을 합칩니다.
+    setTradeHistory(prevTrades => {
+      const merged = mergeTrades(prevTrades, updatedTrades);
+      // DB에 항상 최신 merge 결과를 저장합니다.
+      (async () => {
+        try {
+          await supabase
+            .from("dynamicwave")
+            .upsert({ user_id: localSession?.user?.id, settings, tradehistory: merged });
+          console.log("Trade history 저장 성공");
+        } catch (error) {
+          console.error("Trade history 저장 실패:", error);
+        }
+      })();
+      return merged;
+    });
   };
 
   const handleCalculate = () => {
@@ -342,6 +372,7 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
               onZeroDayTradesUpdate={handleZeroDayTradesUpdate}
               onTradesUpdate={handleTradesUpdate}
               modes={modes}
+              initialTrades={tradeHistory}
             />
           ) : (
             <div className="text-center text-white p-4">
