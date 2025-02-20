@@ -366,22 +366,17 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
         {/* Main content */}
         <main className="w-full h-full pt-16 px-4 md:px-8 overflow-y-auto">
           <TradeCalculator
-            calculation={calculation}
             initialInvestment={settings.initialInvestment}
-            currentSeed={lastSeedForDay}
-            onCalculate={handleCalculate}
             mode={mode}
             settings={settings as AppSettings}
             closingPrices={closingPrices}
             yesterdaySell={yesterdaySell}
             zeroDayTrades={zeroDayTrades}
           />
-          {/* modes가 로딩 완료될 때까지만 대기 */}
           {modes && modes.length > 0 ? (
             <TradeHistory
               closingPrices={closingPrices}
               settings={settings}
-              currentSeed={currentSeed}
               onUpdateYesterdaySell={handleUpdateYesterdaySell}
               onZeroDayTradesUpdate={handleZeroDayTradesUpdate}
               onTradesUpdate={handleTradesUpdate}
