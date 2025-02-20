@@ -53,6 +53,7 @@ export interface TradeHistoryProps {
   onUpdateYesterdaySell: (sell: Trade) => void;
   onTradesUpdate?: (trades: Trade[]) => void;
   onZeroDayTradesUpdate?: (trades: Trade[]) => void;
+  onSeedChange?: (newSeed: number) => void;
   modes?: ModeItem[];
   initialTrades?: Trade[];
 }
@@ -64,6 +65,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
   onUpdateYesterdaySell,
   onTradesUpdate,
   onZeroDayTradesUpdate,
+  onSeedChange,
   modes,
   initialTrades = [],
 }) => {
@@ -348,6 +350,11 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         if (onTradesUpdate) {
           onTradesUpdate(newTrades);
         }
+      }
+
+      // 계산된 updatedSeed를 부모 컴포넌트로 전달하여 currentSeed 업데이트를 요청
+      if (onSeedChange && updatedSeed !== currentSeed) {
+        onSeedChange(updatedSeed);
       }
 
       const yesterday = new Date();
