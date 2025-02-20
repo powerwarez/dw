@@ -315,6 +315,21 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
             settings={settings}
             onChange={handleSettingsChange}
           />
+          <button
+            onClick={handleSaveSettings}
+            className="mt-4 w-full px-4 py-2 bg-green-500 text-white rounded"
+          >
+            저장
+          </button>
+          {saveStatus === 'loading' && (
+            <p className="text-center mt-2">저장 중...</p>
+          )}
+          {saveStatus === 'success' && (
+            <p className="text-center mt-2">저장 완료!</p>
+          )}
+          {saveStatus === 'error' && (
+            <p className="text-center mt-2">저장 실패. 다시 시도해주세요.</p>
+          )}
         </div>
       </aside>
 
@@ -363,10 +378,6 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
           )}
         </main>
       </div>
-      <button onClick={handleSaveSettings}>저장</button>
-      {saveStatus === 'loading' && <p>저장 중...</p>}
-      {saveStatus === 'success' && <p>저장 완료!</p>}
-      {saveStatus === 'error' && <p>저장 실패. 다시 시도해주세요.</p>}
       <div>
         {localSession?.user ? (
           <>
