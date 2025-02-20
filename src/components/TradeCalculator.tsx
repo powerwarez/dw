@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
 
-interface Calculation {
-  targetPrice: number;
-  buyAmount: number;
-  reservationPeriod: number;
-}
+// interface Calculation {
+//   targetPrice: number;
+//   buyAmount: number;
+//   reservationPeriod: number;
+// }
 
 interface Settings {
   safeMaxDays: number;
@@ -31,11 +31,9 @@ interface PriceEntry {
 }
 
 interface TradeCalculatorProps {
-  calculation: Calculation;
   initialInvestment: number;
   mode: "safe" | "aggressive";
   settings: Settings;
-  trades?: Trade[];
   yesterdaySell?: Trade;
   closingPrices: PriceEntry[];
   zeroDayTrades?: Trade[];
@@ -118,11 +116,9 @@ export const isHoliday = (date: Date): boolean => {
 };
 
 const TradeCalculator: React.FC<TradeCalculatorProps> = ({
-  calculation,
   initialInvestment,
   mode,
   settings,
-  trades,
   yesterdaySell,
   closingPrices,
   zeroDayTrades,

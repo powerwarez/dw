@@ -31,6 +31,7 @@ interface AppSettings {
   aggressiveSellPercent: number;
   withdrawalAmount: number;
   aggressiveBuyPercent: number;
+  currentInvestment: number;
   [key: string]: string | number;
 }
 
@@ -52,6 +53,7 @@ const defaultSettings: AppSettings = {
   withdrawalAmount: 0,
   aggressiveBuyPercent: 5,
   fee: 0.0,
+  currentInvestment: 10000,
 };
 
 const MainPage: React.FC<MainPageProps> = ({ session }) => {
