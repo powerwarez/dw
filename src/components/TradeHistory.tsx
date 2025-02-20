@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { FaPencilAlt, FaCheck, FaSpinner } from "react-icons/fa";
+import supabase from "../utils/supabase";
 
 export interface PriceEntry {
   date: string;
@@ -53,7 +54,7 @@ export interface TradeHistoryProps {
   onUpdateYesterdaySell: (sell: Trade) => void;
   onTradesUpdate?: (trades: Trade[]) => void;
   onZeroDayTradesUpdate?: (trades: Trade[]) => void;
-  onSeedChange?: (newSeed: number) => void;
+  userId: string;
   modes?: ModeItem[];
   initialTrades?: Trade[];
 }
@@ -64,7 +65,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
   onUpdateYesterdaySell,
   onTradesUpdate,
   onZeroDayTradesUpdate,
-  onSeedChange,
+  userId,
   modes,
   initialTrades = [],
 }) => {
@@ -351,9 +352,13 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         }
       }
 
-      // 계산된 updatedSeed를 부모 컴포넌트로 전달하여 currentSeed 업데이트를 요청
-      if (onSeedChange && updatedSeed !== settings.currentInvestment) {
-        onSeedChange(updatedSeed);
+      // updatedSeed가 settings.currentInvestment와 다르면 DB 업데이트를 직접 수행합니다.
+      if (updatedSeed !== settings.currentInvestment) {
+        const updatedSettings: Settings = { ...settings, currentInvestment: updatedSeed };
+        supabase
+          .from("dynamicwave")
+          .upsert({ user_id: userId, settings: updatedSettings, tradehistory: newTrades })
+          .then(() => console.log("Seed updated in DB from TradeHistory"))
       }
 
       const yesterday = new Date();

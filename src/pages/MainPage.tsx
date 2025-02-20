@@ -70,6 +70,8 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
   );
   const [zeroDayTrades, setZeroDayTrades] = useState<Trade[]>([]);
   const [modes, setModes] = useState<ApiModeItem[]>([]);
+  // 저장 상태: idle, loading, success, error
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
@@ -200,13 +202,18 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
       console.error("사용자 로그인이 필요합니다.");
       return;
     }
+    setSaveStatus('loading');
     try {
       await supabase
         .from("dynamicwave")
         .upsert({ user_id: localSession.user.id, settings, tradehistory: tradeHistory });
       console.log("설정이 성공적으로 저장되었습니다.");
+      setSaveStatus('success');
+      setTimeout(() => setSaveStatus('idle'), 2000);
     } catch (error) {
       console.error("설정 저장에 실패했습니다:", error);
+      setSaveStatus('error');
+      setTimeout(() => setSaveStatus('idle'), 2000);
     }
   };
 
@@ -250,26 +257,6 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
   };
 
   const lastMode = modes.length > 0 ? modes[modes.length - 1].mode : "safe";
-
-  // updatedSeed가 변경되면 settings.currentInvestment를 업데이트하고 DB에 적용하는 콜백 함수
-  const handleSeedChange = (newSeed: number) => {
-    setSettings((prevSettings) => {
-      if (prevSettings) {
-        const updatedSettings: AppSettings = {
-          ...prevSettings,
-          currentInvestment: newSeed,
-        };
-        // 필요한 경우 DB 업데이트
-        supabase
-          .from("dynamicwave")
-          .upsert({ user_id: localSession?.user?.id, settings: updatedSettings, tradehistory: tradeHistory })
-          .then(() => console.log("Seed updated in DB"))
-
-        return updatedSettings;
-      }
-      return prevSettings;
-    });
-  };
 
   if (!localSession || !localSession.user) {
     return (
@@ -364,9 +351,9 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
               onUpdateYesterdaySell={handleUpdateYesterdaySell}
               onZeroDayTradesUpdate={handleZeroDayTradesUpdate}
               onTradesUpdate={handleTradesUpdate}
-              onSeedChange={handleSeedChange}
               modes={modes}
               initialTrades={tradeHistory}
+              userId={localSession?.user?.id as string}
             />
           ) : (
             <div className="text-center text-white p-4">
@@ -376,7 +363,10 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
           )}
         </main>
       </div>
-      <button onClick={handleSaveSettings}>Save Settings</button>
+      <button onClick={handleSaveSettings}>저장</button>
+      {saveStatus === 'loading' && <p>저장 중...</p>}
+      {saveStatus === 'success' && <p>저장 완료!</p>}
+      {saveStatus === 'error' && <p>저장 실패. 다시 시도해주세요.</p>}
       <div>
         {localSession?.user ? (
           <>
