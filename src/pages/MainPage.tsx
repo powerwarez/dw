@@ -85,6 +85,17 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
   }, []);
 
   useEffect(() => {
+    async function fetchSession() {
+      const {
+        data: { session: currentSession },
+      } = await supabase.auth.getSession();
+      console.log("Fetched initial session:", currentSession);
+      setLocalSession(currentSession);
+    }
+    fetchSession();
+  }, []);
+
+  useEffect(() => {
     const fetchSettings = async () => {
       if (!localSession || !localSession.user) {
         console.error("사용자 로그인이 필요합니다. 설정 데이터를 불러올 수 없습니다.");
@@ -276,8 +287,8 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
 
   if (!localSession || !localSession.user) {
     return (
-      <div className="w-screen h-screen bg-gray-900 text-white flex justify-center items-center">
-        <p>다시 로그인이 필요합니다</p>
+      <div className="w-screen h-screen bg-gray-900 text-white flex flex-col justify-center items-center">
+        <p className="mb-4">로그인이 필요합니다</p>
         <button
           onClick={() =>
             supabase.auth.signInWithOAuth({
