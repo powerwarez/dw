@@ -275,9 +275,22 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
   const lastMode = modes.length > 0 ? modes[modes.length - 1].mode : "safe";
 
   if (!localSession || !localSession.user) {
-    // 세션이 없으면 로그인 페이지로 자동 이동 (리다이렉트)
-    window.location.href = "/login";
-    return null;
+    return (
+      <div className="w-screen h-screen bg-gray-900 text-white flex justify-center items-center">
+        <p>다시 로그인이 필요합니다</p>
+        <button
+          onClick={() =>
+            supabase.auth.signInWithOAuth({
+              provider: "kakao",
+              options: { redirectTo: window.location.origin },
+            })
+          }
+          className="px-4 py-2 bg-blue-500 rounded"
+        >
+          카카오로 로그인
+        </button>
+      </div>
+    );
   }
 
   if (!settings) {
@@ -378,6 +391,8 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
             <button onClick={() => supabase.auth.signOut()}>로그아웃</button>
           </>
         ) : (
+          <div className="w-screen h-screen bg-gray-900 text-white flex justify-center items-center">
+            <p>로그인이 필요합니다</p>
           <button
             onClick={() =>
               supabase.auth.signInWithOAuth({
@@ -387,7 +402,8 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
             }
           >
             카카오로 로그인
-          </button>
+            </button>
+          </div>
         )}
       </div>
     </div>
