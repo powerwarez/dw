@@ -39,6 +39,22 @@ interface MainPageProps {
   session: Session | null;
 }
 
+const defaultSettings: AppSettings = {
+  initialInvestment: 10000,
+  safeMaxDays: 30,
+  aggressiveMaxDays: 7,
+  startDate: "2025-01-01",
+  safeBuyPercent: 3,
+  safeSellPercent: 0.2,
+  seedDivision: 7,
+  profitCompounding: 80,
+  lossCompounding: 30,
+  aggressiveSellPercent: 15,
+  withdrawalAmount: 0,
+  aggressiveBuyPercent: 20,
+  fee: 0.0,
+};
+
 const MainPage: React.FC<MainPageProps> = ({ session }) => {
   const [showSidebar, setShowSidebar] = useState(false);
   const [settings, setSettings] = useState<AppSettings | null>(null);
@@ -60,27 +76,57 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
 
   useEffect(() => {
     const fetchSettings = async () => {
+      if (!session?.user) {
+        console.error("사용자 로그인이 필요합니다. 설정 데이터를 불러올 수 없습니다.");
+        return;
+      }
+
       try {
-        const response = await fetch("/src/data/settings.json");
-        if (!response.ok) {
-          throw new Error("Failed to fetch settings.json");
+        // 동적wave 테이블에서 로그인한 사용자의 settings 데이터를 불러옴
+        const { data, error } = await supabase
+          .from("dynamicwave")
+          .select("settings")
+          .eq("user_id", session.user.id)
+          .maybeSingle();
+
+        if (error) {
+          throw error;
         }
-        const data = await response.json();
-        setSettings(data);
-        setCurrentSeed(data.initialInvestment);
-        setLastSeedForDay(data.initialInvestment);
-        setCalculation((prev) => ({
-          ...prev,
-          reservationPeriod:
-            mode === "safe" ? data.safeMaxDays : data.aggressiveMaxDays,
-        }));
+
+        if (!data || !data.settings) {
+          console.log("dynamicwave 테이블에 설정 데이터가 없습니다. 기본 설정값을 삽입합니다.");
+          // 설정 데이터가 없으면 기본 설정값을 삽입
+          const { error: insertError } = await supabase
+            .from("dynamicwave")
+            .insert({ user_id: session.user.id, settings: defaultSettings });
+          if (insertError) {
+            console.error("기본 설정값 삽입 중 오류 발생:", insertError);
+          }
+          setSettings(defaultSettings);
+          setCurrentSeed(defaultSettings.initialInvestment);
+          setLastSeedForDay(defaultSettings.initialInvestment);
+          setCalculation((prev) => ({
+            ...prev,
+            reservationPeriod:
+              mode === "safe" ? defaultSettings.safeMaxDays : defaultSettings.aggressiveMaxDays,
+          }));
+        } else {
+          setSettings(data.settings as AppSettings);
+          setCurrentSeed(data.settings.initialInvestment);
+          setLastSeedForDay(data.settings.initialInvestment);
+          setCalculation((prev) => ({
+            ...prev,
+            reservationPeriod:
+              mode === "safe" ? data.settings.safeMaxDays : data.settings.aggressiveMaxDays,
+          }));
+        }
       } catch (error) {
-        console.error("Failed to load settings:", error);
+        console.error("dynamicwave 테이블에서 설정 값을 불러오지 못했습니다:", error);
       }
     };
 
     fetchSettings();
-  }, [mode]);
+  }, [mode, session]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -146,13 +192,17 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
   };
 
   const handleSaveSettings = async () => {
+    if (!session?.user) {
+      console.error("사용자 로그인이 필요합니다.");
+      return;
+    }
     try {
       await supabase
-        .from("settings")
-        .upsert({ user_id: session?.user?.id, ...settings });
-      console.log("Settings saved successfully");
+        .from("dynamicwave")
+        .upsert({ user_id: session.user.id, settings });
+      console.log("설정이 성공적으로 저장되었습니다.");
     } catch (error) {
-      console.error("Failed to save settings:", error);
+      console.error("설정 저장에 실패했습니다:", error);
     }
   };
 
