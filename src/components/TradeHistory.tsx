@@ -164,6 +164,9 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         if (currentPrice >= targetBuyPrice) {
           actualBuyPrice = currentPrice;
         }
+        console.log(
+          `[DEBUG] Trade 생성: buyDate=${buyDateStr}, previousClosePrice=${previousClosePrice}, currentPrice=${currentPrice}, targetBuyPrice=${targetBuyPrice}, actualBuyPrice=${actualBuyPrice}`
+        );
 
         const quantity = actualBuyPrice
           ? Math.floor(
@@ -191,6 +194,9 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
             ? settings.safeSellPercent
             : settings.aggressiveSellPercent;
         trade.targetSellPrice = actualBuyPrice * (1 + sellPercent / 100);
+        console.log(
+          `[DEBUG] Trade Sell: mode=${mode}, sellPercent=${sellPercent}, targetSellPrice=${trade.targetSellPrice}`
+        );
 
         for (let i = index + 1; i < closingPrices.length; i++) {
           const futurePriceEntry = closingPrices[i];
@@ -219,8 +225,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
               trade.tradeIndex || 0;
 
             console.log(
-              `[DEBUG] 매도일: ${futureSellDateStr}, 매도가: ${futurePrice}, `,
-              `dailyProfitMap[${futureSellDateStr}] = ${dailyProfitMap[futureSellDateStr].totalProfit}`
+              `[DEBUG] 매도일: ${futureSellDateStr}, 매도가: ${futurePrice}, targetSellPrice: ${trade.targetSellPrice}, dailyProfitMap[${futureSellDateStr}] = ${dailyProfitMap[futureSellDateStr].totalProfit}`
             );
             break;
           }
