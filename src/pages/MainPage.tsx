@@ -277,11 +277,24 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
       <button onClick={handleSaveSettings}>Save Settings</button>
       <div>
         {session?.user ? (
-          <p>Logged in as: {session.user.email}</p>
+          <>
+            <p>Logged in as: {session.user.email}</p>
+            <button onClick={() => supabase.auth.signOut()}>로그아웃</button>
+          </>
         ) : (
-          <p>No user logged in</p>
+          <button
+            onClick={() =>
+              supabase.auth.signInWithOAuth({
+                provider: "kakao",
+                options: {
+                  redirectTo: window.location.origin,
+                },
+              })
+            }
+          >
+            카카오로 로그인
+          </button>
         )}
-        <button onClick={() => supabase.auth.signOut()}>Logout</button>
       </div>
     </div>
   );
