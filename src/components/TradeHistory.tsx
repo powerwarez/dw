@@ -120,9 +120,15 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
 
   useEffect(() => {
     const fetchTrades = async () => {
+      // 만약 DB에서 받아온 Trade 내역(initialTrades)이 존재하면 재계산하지 않고 사용합니다.
+      if (initialTrades && initialTrades.length > 0) {
+        console.log("DB에 존재하는 Trade 내역을 사용합니다.");
+        setTrades(initialTrades);
+        return;
+      }
+
       const startDateStr = settings.startDate;
       const startDateObj = new Date(startDateStr);
-
       let updatedSeed = settings.currentInvestment;
       let tradeIndex = 2;
 
