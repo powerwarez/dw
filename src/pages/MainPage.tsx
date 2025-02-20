@@ -55,6 +55,8 @@ const defaultSettings: AppSettings = {
 };
 
 const MainPage: React.FC<MainPageProps> = ({ session }) => {
+  // 초기 props로 전달된 session을 localSession 상태로 관리하고, onAuthStateChange 리스너로 업데이트합니다.
+  const [localSession, setLocalSession] = useState(session);
   const [showSidebar, setShowSidebar] = useState(false);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [closingPrices, setClosingPrices] = useState<PriceEntry[]>([]);
@@ -74,8 +76,16 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
   const [modes, setModes] = useState<ApiModeItem[]>([]);
 
   useEffect(() => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("Auth state changed:", event, session);
+      setLocalSession(session);
+    });
+    return () => authListener.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
     const fetchSettings = async () => {
-      if (!session || !session.user) {
+      if (!localSession || !localSession.user) {
         console.error("사용자 로그인이 필요합니다. 설정 데이터를 불러올 수 없습니다.");
         return;
       }
@@ -85,7 +95,7 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
         const { data, error } = await supabase
           .from("dynamicwave")
           .select("settings")
-          .eq("user_id", session.user.id)
+          .eq("user_id", localSession.user.id)
           .maybeSingle();
 
         if (error) {
@@ -97,7 +107,7 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
           // 설정 데이터가 없으면 기본 설정값을 삽입
           const { error: insertError } = await supabase
             .from("dynamicwave")
-            .insert({ user_id: session.user.id, settings: defaultSettings });
+            .insert({ user_id: localSession.user.id, settings: defaultSettings });
           if (insertError) {
             console.error("기본 설정값 삽입 중 오류 발생:", insertError);
           }
@@ -125,7 +135,7 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
     };
 
     fetchSettings();
-  }, [mode, session]);
+  }, [mode, localSession]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -191,14 +201,14 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
   };
 
   const handleSaveSettings = async () => {
-    if (!session?.user) {
+    if (!localSession || !localSession.user) {
       console.error("사용자 로그인이 필요합니다.");
       return;
     }
     try {
       await supabase
         .from("dynamicwave")
-        .upsert({ user_id: session.user.id, settings });
+        .upsert({ user_id: localSession.user.id, settings });
       console.log("설정이 성공적으로 저장되었습니다.");
     } catch (error) {
       console.error("설정 저장에 실패했습니다:", error);
@@ -234,7 +244,7 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
 
   const lastMode = modes.length > 0 ? modes[modes.length - 1].mode : "safe";
 
-  if (!session || !session.user) {
+  if (!localSession || !localSession.user) {
     return (
       <div className="w-screen h-screen bg-gray-900 text-white flex justify-center items-center">
         <button
@@ -343,9 +353,9 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
       </div>
       <button onClick={handleSaveSettings}>Save Settings</button>
       <div>
-        {session?.user ? (
+        {localSession?.user ? (
           <>
-            <p>Logged in as: {session.user.email}</p>
+            <p>Logged in as: {localSession.user.email}</p>
             <button onClick={() => supabase.auth.signOut()}>로그아웃</button>
           </>
         ) : (
@@ -353,9 +363,7 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
             onClick={() =>
               supabase.auth.signInWithOAuth({
                 provider: "kakao",
-                options: {
-                  redirectTo: window.location.origin,
-                },
+                options: { redirectTo: window.location.origin },
               })
             }
           >
