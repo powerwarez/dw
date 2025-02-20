@@ -62,15 +62,8 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
   const [showSidebar, setShowSidebar] = useState(false);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [closingPrices, setClosingPrices] = useState<PriceEntry[]>([]);
-  const [currentSeed, setCurrentSeed] = useState<number>(10000);
-  const [lastSeedForDay, setLastSeedForDay] = useState<number>(0);
   const [tradeHistory, setTradeHistory] = useState<Trade[]>([]);
   const [mode] = useState<"safe" | "aggressive">("safe");
-  const [calculation, setCalculation] = useState({
-    targetPrice: 0,
-    buyAmount: 0,
-    reservationPeriod: 0,
-  });
   const [previousClosePrice, setPreviousClosePrice] = useState<number>(0);
   const [yesterdaySell, setYesterdaySell] = useState<Trade | undefined>(
     undefined
@@ -127,8 +120,6 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
           }
           setSettings(defaultSettings);
           setTradeHistory([]);
-          setCurrentSeed(defaultSettings.initialInvestment);
-          setLastSeedForDay(defaultSettings.initialInvestment);
           setCalculation((prev) => ({
             ...prev,
             reservationPeriod:
@@ -137,8 +128,6 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
         } else {
           setSettings(data.settings as AppSettings);
           setTradeHistory(data.tradehistory ? (data.tradehistory as Trade[]) : []);
-          setCurrentSeed(data.settings.initialInvestment);
-          setLastSeedForDay(data.settings.initialInvestment);
           setCalculation((prev) => ({
             ...prev,
             reservationPeriod:
@@ -243,12 +232,6 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
   };
 
   const handleTradesUpdate = async (updatedTrades: Trade[]) => {
-    if (updatedTrades.length > 0) {
-      const lastTradeSeed = updatedTrades[updatedTrades.length - 1]?.seedForDay;
-      if (lastTradeSeed !== undefined) {
-        setLastSeedForDay(lastTradeSeed);
-      }
-    }
     // 병합: 기존 tradeHistory와 새롭게 계산된 내역을 합칩니다.
     setTradeHistory(prevTrades => {
       const merged = mergeTrades(prevTrades, updatedTrades);
@@ -265,15 +248,6 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
       })();
       return merged;
     });
-  };
-
-  const handleCalculate = () => {
-    if (previousClosePrice !== calculation.targetPrice) {
-      setCalculation((prev) => ({
-        ...prev,
-        targetPrice: previousClosePrice,
-      }));
-    }
   };
 
   const handleUpdateYesterdaySell = (sell: Trade) => {
