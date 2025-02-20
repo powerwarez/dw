@@ -48,9 +48,9 @@ const defaultSettings: AppSettings = {
   seedDivision: 7,
   profitCompounding: 80,
   lossCompounding: 30,
-  aggressiveSellPercent: 15,
+  aggressiveSellPercent: 2.5,
   withdrawalAmount: 0,
-  aggressiveBuyPercent: 20,
+  aggressiveBuyPercent: 5,
   fee: 0.0,
 };
 
