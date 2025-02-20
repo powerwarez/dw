@@ -251,6 +251,26 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
 
   const lastMode = modes.length > 0 ? modes[modes.length - 1].mode : "safe";
 
+  // updatedSeed가 변경되면 settings.currentInvestment를 업데이트하고 DB에 적용하는 콜백 함수
+  const handleSeedChange = (newSeed: number) => {
+    setSettings((prevSettings) => {
+      if (prevSettings) {
+        const updatedSettings: AppSettings = {
+          ...prevSettings,
+          currentInvestment: newSeed,
+        };
+        // 필요한 경우 DB 업데이트
+        supabase
+          .from("dynamicwave")
+          .upsert({ user_id: localSession?.user?.id, settings: updatedSettings, tradehistory: tradeHistory })
+          .then(() => console.log("Seed updated in DB"))
+
+        return updatedSettings;
+      }
+      return prevSettings;
+    });
+  };
+
   if (!localSession || !localSession.user) {
     return (
       <div className="w-screen h-screen bg-gray-900 text-white flex flex-col justify-center items-center">
@@ -344,6 +364,7 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
               onUpdateYesterdaySell={handleUpdateYesterdaySell}
               onZeroDayTradesUpdate={handleZeroDayTradesUpdate}
               onTradesUpdate={handleTradesUpdate}
+              onSeedChange={handleSeedChange}
               modes={modes}
               initialTrades={tradeHistory}
             />
