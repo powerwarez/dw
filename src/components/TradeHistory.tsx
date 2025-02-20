@@ -161,7 +161,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
             : settings.aggressiveBuyPercent;
         const targetBuyPrice = previousClosePrice * (1 + buyPercent / 100);
         let actualBuyPrice = 0;
-        if (currentPrice <= targetBuyPrice) {
+        if (currentPrice >= targetBuyPrice) {
           actualBuyPrice = currentPrice;
         }
 
