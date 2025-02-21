@@ -124,9 +124,9 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         console.log("DB에 존재하는 Trade 내역을 사용합니다.");
         setTrades(initialTrades);
        
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = yesterday.toISOString().split("T")[0];
+        const yesterdayDate = new Date();
+        yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+        const yesterdayStr = yesterdayDate.toISOString().split("T")[0];
         console.log("계산된 어제 날짜:", yesterdayStr);
 
         const existingYesterdayTrade = initialTrades.find((trade) => {
@@ -429,17 +429,18 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
             .then(() => console.log("Seed updated in DB from TradeHistory"))
         }
 
-        const yesterday = new Date();
-        yesterday.setDate(new Date().getDate() - 1);
+        const yesterdayDateSale = new Date();
+        yesterdayDateSale.setDate(new Date().getDate() - 1);
+        const yesterdayStrSale = yesterdayDateSale.toISOString().split("T")[0];
 
-        const yesterdaySell = newTrades.find(
+        const yesterdaySellUpdated = newTrades.find(
           (trade) =>
-            trade.buyDate === yesterday.toISOString().split("T")[0] &&
+            trade.buyDate === yesterdayStrSale &&
             trade.targetSellPrice > 0
         );
-        console.log("yesterdaySell:", yesterdaySell);
-        if (yesterdaySell) {
-          onUpdateYesterdaySell(yesterdaySell);
+        console.log("yesterdaySell:", yesterdaySellUpdated);
+        if (yesterdaySellUpdated) {
+          onUpdateYesterdaySell(yesterdaySellUpdated);
         }
 
         const newZeroDayTrades = newTrades.filter(
@@ -685,17 +686,18 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
             .then(() => console.log("Seed updated in DB from TradeHistory"))
         }
 
-        const yesterday = new Date();
-        yesterday.setDate(new Date().getDate() - 1);
+        const yesterdayDateSale = new Date();
+        yesterdayDateSale.setDate(new Date().getDate() - 1);
+        const yesterdayStrSale = yesterdayDateSale.toISOString().split("T")[0];
 
-        const yesterdaySell = newTrades.find(
+        const yesterdaySellUpdated = newTrades.find(
           (trade) =>
-            trade.buyDate === yesterday.toISOString().split("T")[0] &&
+            trade.buyDate === yesterdayStrSale &&
             trade.targetSellPrice > 0
         );
-        console.log("yesterdaySell:", yesterdaySell);
-        if (yesterdaySell) {
-          onUpdateYesterdaySell(yesterdaySell);
+        console.log("yesterdaySell:", yesterdaySellUpdated);
+        if (yesterdaySellUpdated) {
+          onUpdateYesterdaySell(yesterdaySellUpdated);
         }
 
         const newZeroDayTrades = newTrades.filter(
