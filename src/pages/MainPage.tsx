@@ -104,21 +104,20 @@ const MainPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const fetchSettings = async () => {
-      
+    // 먼저, 세션이 준비되지 않았다면 DB 조회를 하지 않음
+    if (!localSession || !localSession.user) {
+      console.error("사용자 로그인이 필요합니다. 설정 데이터를 불러올 수 없습니다.");
+      return;
+    }
 
+    const fetchSettings = async () => {
       try {
-        // dynamicwave 테이블에서 로그인한 사용자의 settings와 tradehistory 데이터를 불러옴
         const { data, error } = await supabase
           .from("dynamicwave")
           .select("settings, tradehistory")
           .eq("user_id", localSession.user.id)
           .maybeSingle();
-        if (!localSession || !localSession.user) {
-            console.error("사용자 로그인이 필요합니다. 설정 데이터를 불러올 수 없습니다.");
-            return;
-          }
-          
+        
         if (error) {
           throw error;
         }
@@ -149,9 +148,8 @@ const MainPage: React.FC = () => {
         console.error("dynamicwave 테이블에서 설정 값을 불러오지 못했습니다:", error);
       }
     };
-
     fetchSettings();
-  }, [mode, localSession]);
+  }, [localSession]);
 
   useEffect(() => {
     const fetchData = async () => {
