@@ -761,16 +761,21 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     setTempQuantity(trades[index].sellQuantity || 0);
   };
 
-  const handleCheckPriceClick = (index: number) => {
+  const handleCheckPriceClick = async (index: number) => {
     if (tempPrice !== null) {
+      // 업데이트된 실제 매도가를 로컬 상태에 반영
       handleInputChange(index, "actualSellPrice", tempPrice);
+      // DB 업데이트: onSellInfoUpdate 호출 (매도가 업데이트)
+      await onSellInfoUpdate(trades[index].tradeIndex, { sellPrice: tempPrice });
     }
     setEditPriceIndex(null);
   };
 
-  const handleCheckQuantityClick = (index: number) => {
+  const handleCheckQuantityClick = async (index: number) => {
     if (tempQuantity !== null) {
       handleInputChange(index, "sellQuantity", tempQuantity);
+      // DB 업데이트: onSellInfoUpdate 호출 (매도 수량 업데이트)
+      await onSellInfoUpdate(trades[index].tradeIndex, { sellQuantity: tempQuantity });
     }
     setEditQuantityIndex(null);
   };
@@ -899,18 +904,17 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                         selected={
                           trade.sellDate ? new Date(trade.sellDate) : null
                         }
-                        onChange={(date) =>
-                          handleInputChange(
-                            index,
-                            "sellDate",
-                            date
-                              ? date.toLocaleDateString("ko-KR", {
-                                  month: "2-digit",
-                                  day: "2-digit",
-                                })
-                              : ""
-                          )
-                        }
+                        onChange={(date) => {
+                          const newSellDate = date
+                            ? date.toLocaleDateString("ko-KR", {
+                                month: "2-digit",
+                                day: "2-digit",
+                              })
+                            : "";
+                          handleInputChange(index, "sellDate", newSellDate);
+                          // DB 업데이트: onSellInfoUpdate 호출 (매도일 업데이트)
+                          onSellInfoUpdate(trade.tradeIndex, { sellDate: newSellDate });
+                        }}
                         dateFormat="MM-dd"
                         className="bg-gray-600 p-1 rounded w-20"
                       />
