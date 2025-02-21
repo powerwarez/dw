@@ -37,7 +37,7 @@ interface AppSettings {
 }
 
 const defaultSettings: AppSettings = {
-  initialInvestment: 10000,
+  initialInvestment: 75000,
   safeMaxDays: 30,
   aggressiveMaxDays: 7,
   startDate: "2025-01-01",
@@ -50,7 +50,7 @@ const defaultSettings: AppSettings = {
   withdrawalAmount: 0,
   aggressiveBuyPercent: 5,
   fee: 0.0,
-  currentInvestment: 10000,
+  currentInvestment: 75000,
 };
 
 const MainPage: React.FC = () => {
@@ -214,13 +214,9 @@ const MainPage: React.FC = () => {
   useEffect(() => {
     async function verifyRegistration() {
       if (localSession && localSession.user) {
-        const { data, error } = await supabase
-          .from("dynamicwave")
-          .select("user_id")
-          .eq("user_id", localSession.user.id)
-          .maybeSingle();
-        if (error || !data) {
-          console.error("Supabase에 등록되지 않은 사용자입니다. 로그인 페이지로 이동합니다.");
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (error || !user) {
+          console.error("Supabase Auth에 등록되지 않은 사용자입니다. 로그인 페이지로 이동합니다.");
           await supabase.auth.signOut();
           navigate("/login");
         }
