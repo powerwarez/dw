@@ -179,14 +179,21 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
         if (!response.ok) {
           throw new Error("Failed to fetch modes data");
         }
-        const data: ApiResponse = await response.json();
+
+        // 응답 본문을 문자열로 가져온 후, 비어있는지 확인합니다.
+        const text = await response.text();
+        if (!text) {
+          console.warn("응답 본문이 비어 있습니다.");
+          return;
+        }
+
+        const data: ApiResponse = JSON.parse(text);
         console.log("API data:", data);
         setModes(data.mode);
       } catch (error) {
         console.error("Error fetching modes:", error);
       }
     };
-
     fetchModes();
   }, []);
 
