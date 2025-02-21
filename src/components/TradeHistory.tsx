@@ -120,12 +120,31 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
 
   useEffect(() => {
     const fetchTrades = async () => {
-      // 만약 DB에서 받아온 Trade 내역(initialTrades)이 존재하면 재계산하지 않고 사용합니다.
-      if (initialTrades && initialTrades.length > 0) {
-        console.log("DB에 존재하는 Trade 내역을 사용합니다.");
-        setTrades(initialTrades);
-        return;
-      }
+        // 만약 DB에서 받아온 Trade 내역(initialTrades)이 존재하면 재계산하지 않고 사용합니다.
+  if (initialTrades && initialTrades.length > 0) {
+    console.log("DB에 존재하는 Trade 내역을 사용합니다.");
+    setTrades(initialTrades);
+   
+    // 어제 날짜를 YYYY-MM-DD 형식으로 계산
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split("T")[0];
+    console.log("계산된 어제 날짜:", yesterdayStr);
+
+    // 초기 Trade 내역에서 치고 어제 날짜이거나(daysUntilSell === 0) 조건을 만족하는 거래 중,
+    // targetSellPrice가 0보다 큰 거래를 찾습니다.
+    const yesterdaySell = initialTrades.find(
+      (trade) =>
+        (trade.buyDate === yesterdayStr || trade.daysUntilSell === 0) &&
+        trade.targetSellPrice > 0
+    );
+    console.log("계산된 yesterdaySell:", yesterdaySell);
+    // yesterdaySell이 유효할 때만 onUpdateYesterdaySell 호출
+    if (yesterdaySell && onUpdateYesterdaySell) {
+      onUpdateYesterdaySell(yesterdaySell);
+    }
+    return;
+  } 
 
       const startDateStr = settings.startDate;
       const startDateObj = new Date(startDateStr);
