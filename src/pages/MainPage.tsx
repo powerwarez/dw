@@ -350,6 +350,36 @@ const MainPage: React.FC = () => {
     });
   };
 
+  // 새 함수: 매도 수량, 매도가, 매도일 수정 시 해당 거래 업데이트 및 DB 반영
+  // updates 객체에 sellQuantity, sellPrice, sellDate 중 업데이트할 값들을 전달합니다.
+  const updateSellInfo = async (
+    tradeIndex: number,
+    updates: { sellQuantity?: number; sellPrice?: number; sellDate?: string }
+  ) => {
+    setTradeHistory(prevTrades => {
+      const updatedTrades = prevTrades.map(trade => {
+        if (trade.tradeIndex === tradeIndex) {
+          return { ...trade, ...updates };
+        }
+        return trade;
+      });
+
+      // 업데이트된 tradehistory 배열을 DB에 저장합니다.
+      (async () => {
+        try {
+          await supabase
+            .from("dynamicwave")
+            .upsert({ user_id: localSession?.user?.id, settings, tradehistory: updatedTrades });
+          console.log("매도 정보 업데이트 성공", updates);
+        } catch (error) {
+          console.error("매도 정보 업데이트 실패:", error);
+        }
+      })();
+
+      return updatedTrades;
+    });
+  };
+
   const handleUpdateYesterdaySell = (sell: Trade) => {
     setYesterdaySell(sell);
   };
@@ -502,6 +532,7 @@ const MainPage: React.FC = () => {
               onUpdateYesterdaySell={handleUpdateYesterdaySell}
               onZeroDayTradesUpdate={handleZeroDayTradesUpdate}
               onTradesUpdate={handleTradesUpdate}
+              onSellInfoUpdate={updateSellInfo}
               modes={modes}
               initialTrades={tradeHistory}
               userId={localSession?.user?.id as string}

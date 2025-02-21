@@ -58,6 +58,10 @@ export interface TradeHistoryProps {
   userId: string;
   modes?: ModeItem[];
   initialTrades?: Trade[];
+  onSellInfoUpdate: (
+    tradeIndex: number,
+    updates: { sellQuantity?: number; sellPrice?: number; sellDate?: string }
+  ) => Promise<void>;
 }
 
 const TradeHistory: React.FC<TradeHistoryProps> = ({
@@ -69,6 +73,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
   userId,
   modes,
   initialTrades = [],
+  onSellInfoUpdate,
 }) => {
   const [isModeLoading, setIsModeLoading] = useState(false);
   const [trades, setTrades] = useState<Trade[]>(initialTrades);
