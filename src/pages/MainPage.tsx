@@ -4,8 +4,9 @@ import InvestmentSettings from "../components/InvestmentSettings";
 import TradeHistory from "../components/TradeHistory";
 import { FaBars, FaSpinner } from "react-icons/fa";
 import supabase from "../utils/supabase";
-import { Session } from "@supabase/supabase-js";
+// import { Session } from "@supabase/supabase-js";
 import { Trade, PriceEntry } from "../components/TradeHistory";
+import { Navigate, useLocation } from "react-router-dom";
 
 interface ApiModeItem {
   date: string;
@@ -35,10 +36,6 @@ interface AppSettings {
   [key: string]: string | number;
 }
 
-interface MainPageProps {
-  session: Session | null;
-}
-
 const defaultSettings: AppSettings = {
   initialInvestment: 10000,
   safeMaxDays: 30,
@@ -56,9 +53,11 @@ const defaultSettings: AppSettings = {
   currentInvestment: 10000,
 };
 
-const MainPage: React.FC<MainPageProps> = ({ session }) => {
-  // 초기 props로 전달된 session을 localSession 상태로 관리하고, onAuthStateChange 리스너로 업데이트합니다.
-  const [localSession, setLocalSession] = useState(session);
+const MainPage: React.FC = () => {
+  const location = useLocation();
+  // Login 페이지에서 전달된 session을 읽어옵니다.
+  const routeSession = location.state?.session || null;
+  const [localSession, setLocalSession] = useState(routeSession);
   const [showSidebar, setShowSidebar] = useState(false);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   // 최초 로드된 세팅을 저장 (취소 시 원래대로 복원)
@@ -75,7 +74,6 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
   // 저장 상태: idle, loading, success, error
   const [saveStatus, setSaveStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   // 트레이드 재생성을 위한 trigger 상태
-  const [setTradeGenerationTrigger] = useState(0);
   // 모달 표시 여부
   const [showConfirmSaveModal, setShowConfirmSaveModal] = useState(false);
 
@@ -234,7 +232,6 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
         .upsert({ user_id: localSession!.user!.id, settings, tradehistory: emptyTradeHistory });
       setTradeHistory(emptyTradeHistory);
       // 저장 후 trigger 증가 => 트레이드 생성 useEffect가 재실행됨
-      setTradeGenerationTrigger(prev => prev + 1);
       console.log("설정 저장 및 tradehistory 초기화 완료");
       setSaveStatus('success');
       setTimeout(() => setSaveStatus('idle'), 2000);
@@ -296,22 +293,7 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
   const lastMode = modes.length > 0 ? modes[modes.length - 1].mode : "safe";
 
   if (!localSession || !localSession.user) {
-    return (
-      <div className="w-screen h-screen bg-gray-900 text-white flex flex-col justify-center items-center">
-        <p className="mb-4">로그인이 필요합니다</p>
-        <button
-          onClick={() =>
-            supabase.auth.signInWithOAuth({
-              provider: "kakao",
-              options: { redirectTo: window.location.origin },
-            })
-          }
-          className="px-4 py-2 bg-blue-500 rounded"
-        >
-          카카오로 로그인
-        </button>
-      </div>
-    );
+    return <Navigate to="/login" />;
   }
 
   if (!settings) {

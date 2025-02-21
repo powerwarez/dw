@@ -6,8 +6,7 @@ import {
   Navigate,
 } from "react-router-dom";
 import MainPage from "./pages/MainPage";
-// import Login from "./pages/Login";
-// import Signup from "./pages/Signup";
+import Login from "./pages/Login";
 import { Session } from "@supabase/supabase-js";
 
 const App: React.FC = () => {
@@ -21,9 +20,8 @@ const App: React.FC = () => {
   return (
     <Router>
       <Routes>
-        <Route path="/login" element={<Navigate to="/" />} />
-        <Route path="/signup" element={<Navigate to="/" />} />
-        <Route path="/" element={<MainPage session={session} />} />
+        <Route path="/login" element={ session ? <Navigate to="/" /> : <Login /> } />
+        <Route path="/" element={<MainPage />} />
       </Routes>
     </Router>
   );
