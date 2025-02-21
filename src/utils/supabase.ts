@@ -1,9 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL as string;
-const supabaseAnonKey = process.env.VITE_SUPABASE_API_KEY as string;
+const supabaseKey = process.env.VITE_SUPABASE_API_KEY as string;
 
-const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
     persistSession: true,       // 세션 정보를 localStorage에 저장함
     autoRefreshToken: true,     // 토큰 자동 갱신 활성화

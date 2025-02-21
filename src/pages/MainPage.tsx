@@ -4,7 +4,6 @@ import InvestmentSettings from "../components/InvestmentSettings";
 import TradeHistory from "../components/TradeHistory";
 import { FaBars, FaSpinner } from "react-icons/fa";
 import supabase from "../utils/supabase";
-// import { Session } from "@supabase/supabase-js";
 import { Trade, PriceEntry } from "../components/TradeHistory";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
