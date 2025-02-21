@@ -480,7 +480,7 @@ const MainPage: React.FC = () => {
             onClick={() =>
               supabase.auth.signInWithOAuth({
                 provider: "kakao",
-                options: { redirectTo: window.location.origin },
+                options: { redirectTo: "https://dynamicwave.netlify.app" },
               })
             }
           >
