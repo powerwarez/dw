@@ -58,6 +58,8 @@ const MainPage: React.FC = () => {
   // Login 페이지에서 전달된 session을 읽어옵니다.
   const routeSession = location.state?.session || null;
   const [localSession, setLocalSession] = useState(routeSession);
+  // 인증 로딩 상태 추가
+  const [authLoading, setAuthLoading] = useState<boolean>(true);
   const [showSidebar, setShowSidebar] = useState(false);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   // 최초 로드된 세팅을 저장 (취소 시 원래대로 복원)
@@ -86,12 +88,19 @@ const MainPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    // 기존의 getSession 호출에 setLocalSession과 authLoading 업데이트 추가
     supabase.auth.getSession()
       .then(({ data: { session } }) => {
         console.log("Debug - Fetched initial session:", session);
+        if (session) {
+          setLocalSession(session);
+        }
       })
       .catch((err) => {
         console.error("Error fetching session:", err);
+      })
+      .finally(() => {
+        setAuthLoading(false);
       });
 
     supabase.auth.getUser()
@@ -321,6 +330,14 @@ const MainPage: React.FC = () => {
 
   const lastMode = modes.length > 0 ? modes[modes.length - 1].mode : "safe";
 
+  // 렌더링 시작 전 인증 상태 체크 (인증 로딩 중이면 로딩 화면 표시)
+  if (authLoading) {
+    return (
+      <div className="w-screen h-screen bg-gray-900 flex items-center justify-center">
+        <p>인증 중...</p>
+      </div>
+    );
+  }
   if (!localSession || !localSession.user) {
     return <Navigate to="/login" />;
   }
