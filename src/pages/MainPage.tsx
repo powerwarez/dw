@@ -87,14 +87,21 @@ const MainPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    async function fetchSession() {
-      const {
-        data: { session: currentSession },
-      } = await supabase.auth.getSession();
-      console.log("Fetched initial session:", currentSession);
-      setLocalSession(currentSession);
-    }
-    fetchSession();
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        console.log("Debug - Fetched initial session:", session);
+      })
+      .catch((err) => {
+        console.error("Error fetching session:", err);
+      });
+
+    supabase.auth.getUser()
+      .then(({ data: { user } }) => {
+        console.log("Debug - Fetched user from auth:", user);
+      })
+      .catch((err) => {
+        console.error("Error fetching user:", err);
+      });
   }, []);
 
   useEffect(() => {
