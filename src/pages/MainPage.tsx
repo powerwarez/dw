@@ -3,9 +3,9 @@ import TradeCalculator from "../components/TradeCalculator";
 import InvestmentSettings from "../components/InvestmentSettings";
 import TradeHistory from "../components/TradeHistory";
 import { FaBars, FaSpinner } from "react-icons/fa";
-import { createClient } from "@supabase/supabase-js";
 import { Trade, PriceEntry } from "../components/TradeHistory";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import supabase from "../utils/supabase";
 
 interface ApiModeItem {
   date: string;
@@ -51,17 +51,6 @@ const defaultSettings: AppSettings = {
   fee: 0.0,
   currentInvestment: 75000,
 };
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-const supabaseKey = import.meta.env.VITE_SUPABASE_API_KEY as string;
-
-const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: {
-    persistSession: true,       // localStorage에 세션 정보를 저장함
-    autoRefreshToken: true,     // 토큰 자동 갱신 활성화
-    detectSessionInUrl: true,   // OAuth 완료 후 URL에 포함된 세션 정보를 자동으로 가져옴
-  }
-});
 
 const MainPage: React.FC = () => {
   const location = useLocation();

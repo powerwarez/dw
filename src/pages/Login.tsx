@@ -22,6 +22,7 @@ const Login: React.FC = () => {
 
   // 세션이 있으면 메인페이지로 리디렉트
   if (session) {
+    console.log("session이 있니?", session);
     return <Navigate to="/" state={{ session }} />;
   }
 
