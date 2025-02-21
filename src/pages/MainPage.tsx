@@ -61,6 +61,8 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
   const [localSession, setLocalSession] = useState(session);
   const [showSidebar, setShowSidebar] = useState(false);
   const [settings, setSettings] = useState<AppSettings | null>(null);
+  // 최초 로드된 세팅을 저장 (취소 시 원래대로 복원)
+  const [originalSettings, setOriginalSettings] = useState<AppSettings | null>(null);
   const [closingPrices, setClosingPrices] = useState<PriceEntry[]>([]);
   const [tradeHistory, setTradeHistory] = useState<Trade[]>([]);
   const [mode] = useState<"safe" | "aggressive">("safe");
@@ -72,6 +74,8 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
   const [modes, setModes] = useState<ApiModeItem[]>([]);
   // 저장 상태: idle, loading, success, error
   const [saveStatus, setSaveStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  // 모달 표시 여부
+  const [showConfirmSaveModal, setShowConfirmSaveModal] = useState(false);
 
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
@@ -122,8 +126,15 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
           }
           setSettings(defaultSettings);
           setTradeHistory([]);
+          if (!originalSettings) {
+            setOriginalSettings(defaultSettings);
+          }
         } else {
-          setSettings(data.settings as AppSettings);
+          const loadedSettings = data.settings as AppSettings;
+          setSettings(loadedSettings);
+          if (!originalSettings) {
+            setOriginalSettings(loadedSettings);
+          }
           setTradeHistory(data.tradehistory ? (data.tradehistory as Trade[]) : []);
         }
       } catch (error) {
@@ -204,17 +215,16 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
     }));
   };
 
-  const handleSaveSettings = async () => {
-    if (!localSession || !localSession.user) {
-      console.error("사용자 로그인이 필요합니다.");
-      return;
-    }
+  // 실제 저장 로직(모달 확인 후 실행)
+  const doSaveSettings = async () => {
     setSaveStatus('loading');
     try {
+      const emptyTradeHistory: Trade[] = [];
       await supabase
         .from("dynamicwave")
-        .upsert({ user_id: localSession.user.id, settings, tradehistory: tradeHistory });
-      console.log("설정이 성공적으로 저장되었습니다.");
+        .upsert({ user_id: localSession!.user!.id, settings, tradehistory: emptyTradeHistory });
+      setTradeHistory(emptyTradeHistory);
+      console.log("설정 저장 및 tradehistory 초기화 완료");
       setSaveStatus('success');
       setTimeout(() => setSaveStatus('idle'), 2000);
     } catch (error) {
@@ -222,6 +232,15 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
       setSaveStatus('error');
       setTimeout(() => setSaveStatus('idle'), 2000);
     }
+  };
+
+  // 저장 버튼 클릭 시 모달을 띄움 (실제 저장은 모달 확인후 doSaveSettings에서 수행)
+  const handleSaveSettings = () => {
+    if (!localSession || !localSession.user) {
+      console.error("사용자 로그인이 필요합니다.");
+      return;
+    }
+    setShowConfirmSaveModal(true);
   };
 
   const mergeTrades = (existingTrades: Trade[], newTrades: Trade[]): Trade[] => {
@@ -285,7 +304,13 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
   }
 
   if (!settings) {
-    return <div>Loading...</div>;
+    return (
+      <div className="w-screen h-screen bg-gray-900 flex items-center justify-center">
+        <h1 className="text-3xl font-bold text-center mb-6 bg-clip-text text-transparent bg-gradient-to-r from-pink-300 via-purple-300 to-blue-300">
+          기계처럼 투자해서 부자되자 동파법
+        </h1>
+      </div>
+    );
   }
 
   return (
@@ -297,6 +322,40 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
       >
         <FaBars className="text-2xl" />
       </button>
+
+      {/* 모달창: 세팅 저장 전 확인 */}
+      {showConfirmSaveModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 p-6 rounded-lg shadow-lg w-96">
+            <h2 className="text-xl text-white mb-4">확인</h2>
+            <p className="text-white mb-6">
+              기존 트레이드가 삭제되고 새로 생성됩니다. 계속하시겠습니까?
+            </p>
+            <div className="flex justify-end space-x-4">
+              <button
+                onClick={() => {
+                  setShowConfirmSaveModal(false);
+                  if (originalSettings) {
+                    setSettings(originalSettings);
+                  }
+                }}
+                className="px-4 py-2 bg-red-500 hover:bg-red-600 rounded text-white"
+              >
+                취소
+              </button>
+              <button
+                onClick={async () => {
+                  setShowConfirmSaveModal(false);
+                  await doSaveSettings();
+                }}
+                className="px-4 py-2 bg-green-500 hover:bg-green-600 rounded text-white"
+              >
+                확인
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Sidebar */}
       <aside
