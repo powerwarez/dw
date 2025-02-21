@@ -85,6 +85,12 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
   );
   const [tempWithdrawal, setTempWithdrawal] = useState<number | null>(null);
 
+  // prop으로 받은 settings를 로컬 상태로 관리
+  const [localSettings, setSettings] = useState<Settings>(settings);
+  useEffect(() => {
+    setSettings(settings);
+  }, [settings]);
+
   async function waitForModes(
     initModes: ModeItem[] | null
   ): Promise<ModeItem[] | null> {
@@ -422,18 +428,21 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
           }
         }
 
-        if (updatedSeed !== settings.currentInvestment) {
+        if (updatedSeed !== localSettings.currentInvestment) {
           const todayStr = new Date().toISOString().split("T")[0];
           // 기존 seedUpdates가 없으면 빈 객체 초기화
-          const seedUpdates = settings.seedUpdates ? { ...settings.seedUpdates } : {};
+          const seedUpdates = localSettings.seedUpdates ? { ...localSettings.seedUpdates } : {};
           if (seedUpdates[todayStr] === undefined) {
             // 오늘 날짜 기록이 없으므로 업데이트 실행 및 기록 추가
             seedUpdates[todayStr] = updatedSeed;
-            const updatedSettings: Settings = { ...settings, currentInvestment: updatedSeed, seedUpdates };
+            const updatedSettings: Settings = { ...localSettings, currentInvestment: updatedSeed, seedUpdates };
             supabase
               .from("dynamicwave")
               .upsert({ user_id: userId, settings: updatedSettings, tradehistory: newTrades })
-              .then(() => console.log("Seed updated in DB from TradeHistory"));
+              .then(() => {
+                console.log("Seed updated in DB from TradeHistory");
+                setSettings(updatedSettings); // 로컬 상태를 함께 업데이트
+              });
           } else {
             console.log("Seed update for today already executed. Skipping update.");
           }
@@ -688,18 +697,21 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
           }
         }
 
-        if (updatedSeed !== settings.currentInvestment) {
+        if (updatedSeed !== localSettings.currentInvestment) {
           const todayStr = new Date().toISOString().split("T")[0];
           // 기존 seedUpdates가 없으면 빈 객체 초기화
-          const seedUpdates = settings.seedUpdates ? { ...settings.seedUpdates } : {};
+          const seedUpdates = localSettings.seedUpdates ? { ...localSettings.seedUpdates } : {};
           if (seedUpdates[todayStr] === undefined) {
             // 오늘 날짜 기록이 없으므로 업데이트 실행 및 기록 추가
             seedUpdates[todayStr] = updatedSeed;
-            const updatedSettings: Settings = { ...settings, currentInvestment: updatedSeed, seedUpdates };
+            const updatedSettings: Settings = { ...localSettings, currentInvestment: updatedSeed, seedUpdates };
             supabase
               .from("dynamicwave")
               .upsert({ user_id: userId, settings: updatedSettings, tradehistory: newTrades })
-              .then(() => console.log("Seed updated in DB from TradeHistory"));
+              .then(() => {
+                console.log("Seed updated in DB from TradeHistory");
+                setSettings(updatedSettings); // 로컬 상태를 함께 업데이트
+              });
           } else {
             console.log("Seed update for today already executed. Skipping update.");
           }

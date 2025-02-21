@@ -6,7 +6,7 @@ import { FaBars, FaSpinner } from "react-icons/fa";
 import supabase from "../utils/supabase";
 // import { Session } from "@supabase/supabase-js";
 import { Trade, PriceEntry } from "../components/TradeHistory";
-import { Navigate, useLocation } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
 interface ApiModeItem {
   date: string;
@@ -55,6 +55,7 @@ const defaultSettings: AppSettings = {
 
 const MainPage: React.FC = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   // Login 페이지에서 전달된 session을 읽어옵니다.
   const routeSession = location.state?.session || null;
   const [localSession, setLocalSession] = useState(routeSession);
@@ -209,6 +210,24 @@ const MainPage: React.FC = () => {
     };
     fetchModes();
   }, []);
+
+  useEffect(() => {
+    async function verifyRegistration() {
+      if (localSession && localSession.user) {
+        const { data, error } = await supabase
+          .from("dynamicwave")
+          .select("user_id")
+          .eq("user_id", localSession.user.id)
+          .maybeSingle();
+        if (error || !data) {
+          console.error("Supabase에 등록되지 않은 사용자입니다. 로그인 페이지로 이동합니다.");
+          await supabase.auth.signOut();
+          navigate("/login");
+        }
+      }
+    }
+    verifyRegistration();
+  }, [localSession, navigate]);
 
   const handleSettingsChange = (field: string, value: number | string) => {
     setSettings((prevSettings) => {
