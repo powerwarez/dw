@@ -133,11 +133,13 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
 
     // 초기 Trade 내역에서 치고 어제 날짜이거나(daysUntilSell === 0) 조건을 만족하는 거래 중,
     // targetSellPrice가 0보다 큰 거래를 찾습니다.
-    const yesterdaySell = initialTrades.find(
-      (trade) =>
-        (trade.buyDate === yesterdayStr || trade.daysUntilSell === 0) &&
-        trade.targetSellPrice > 0
-    );
+    const yesterdaySell = initialTrades.find((trade) => {
+      // trade.buyDate가 DB에 저장될 때 ISO DateTime 형식으로 저장되었다면
+      // 날짜 부분만 추출해 비교합니다.
+      const tradeBuyDateStr = new Date(trade.buyDate).toISOString().split("T")[0];
+      return (tradeBuyDateStr === yesterdayStr || trade.daysUntilSell === 0) &&
+             trade.targetSellPrice > 0;
+    });
     console.log("계산된 yesterdaySell:", yesterdaySell);
     // yesterdaySell이 유효할 때만 onUpdateYesterdaySell 호출
     if (yesterdaySell && onUpdateYesterdaySell) {
