@@ -248,12 +248,19 @@ const MainPage: React.FC = () => {
 
   // 실제 저장 로직(모달 확인 후 실행)
   const doSaveSettings = async () => {
+    // 로그인 상태가 유효하지 않다면 DB 작업을 중단합니다.
+    if (!localSession || !localSession.user) {
+      console.error("사용자 로그인 실패. 설정 저장을 중단합니다.");
+      setSaveStatus('error');
+      return;
+    }
+
     setSaveStatus('loading');
     try {
       const emptyTradeHistory: Trade[] = [];
       await supabase
         .from("dynamicwave")
-        .upsert({ user_id: localSession!.user!.id, settings, tradehistory: emptyTradeHistory });
+        .upsert({ user_id: localSession.user.id, settings, tradehistory: emptyTradeHistory });
       setTradeHistory(emptyTradeHistory);
       // 저장 후 trigger 증가 => 트레이드 생성 useEffect가 재실행됨
       console.log("설정 저장 및 tradehistory 초기화 완료");
