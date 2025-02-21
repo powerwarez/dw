@@ -16,7 +16,7 @@ const Login: React.FC = () => {
   const handleKakaoLogin = async () => {
     await supabase.auth.signInWithOAuth({
       provider: "kakao",
-      options: { redirectTo: window.location.origin },
+      options: { redirectTo: "https://dynamicwave.netlify.app" },
     });
   };
 
