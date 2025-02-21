@@ -197,6 +197,37 @@ const MainPage: React.FC = () => {
 
   useEffect(() => {
     const fetchModes = async () => {
+      // 먼저 DB의 mode 테이블에서 최근 데이터를 가져옵니다.
+      try {
+        const { data: dbMode, error } = await supabase
+          .from("mode")
+          .select("*")
+          .order("date", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (error) {
+          console.error("DB에서 mode 데이터를 가져오는 중 오류:", error);
+        }
+
+        if (dbMode && dbMode.mode && closingPrices.length > 0) {
+          const lastTradingDate = new Date(closingPrices[closingPrices.length - 1].date);
+          const dbModeDate = new Date(dbMode.date);
+          const diffTime = Math.abs(lastTradingDate.getTime() - dbModeDate.getTime());
+          const diffDays = diffTime / (1000 * 60 * 60 * 24);
+
+          // 최근 거래일과 mode 데이터의 날짜 차이가 10일 이내라면 DB 데이터를 사용합니다.
+          if (diffDays <= 10) {
+            console.log("DB의 최신 mode 데이터를 사용합니다:", dbMode);
+            setModes([dbMode]);
+            return;
+          }
+        }
+      } catch (err) {
+        console.error("DB mode 데이터를 가져오는 중 예외 발생:", err);
+      }
+
+      // DB에 유효한 최신 mode 데이터가 없으면 API 요청을 통한 데이터를 사용합니다.
       while (true) {
         try {
           const response = await fetch("https://mode-api-powerwarezs-projects.vercel.app/api");
@@ -217,13 +248,13 @@ const MainPage: React.FC = () => {
           setModes(data.mode);
           break;
         } catch (error) {
-          console.error("Error fetching modes:", error);
+          console.error("API를 통해 mode 데이터를 가져오는 중 오류:", error);
           await new Promise((resolve) => setTimeout(resolve, 500));
         }
       }
     };
     fetchModes();
-  }, []);
+  }, [closingPrices, localSession]);
 
   useEffect(() => {
     async function verifyRegistration() {
