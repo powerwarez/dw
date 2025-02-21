@@ -74,6 +74,8 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
   const [modes, setModes] = useState<ApiModeItem[]>([]);
   // 저장 상태: idle, loading, success, error
   const [saveStatus, setSaveStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  // 트레이드 재생성을 위한 trigger 상태
+  const [setTradeGenerationTrigger] = useState(0);
   // 모달 표시 여부
   const [showConfirmSaveModal, setShowConfirmSaveModal] = useState(false);
 
@@ -209,10 +211,17 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
   }, []);
 
   const handleSettingsChange = (field: string, value: number | string) => {
-    setSettings((prevSettings) => ({
-      ...(prevSettings as AppSettings),
-      [field]: value,
-    }));
+    setSettings((prevSettings) => {
+      const updatedSettings = {
+        ...(prevSettings as AppSettings),
+        [field]: value,
+      };
+      // initialInvestment 변경 시 currentInvestment도 업데이트 (문자열이면 number로 변환)
+      if (field === "initialInvestment") {
+        updatedSettings.currentInvestment = typeof value === "number" ? value : +value;
+      }
+      return updatedSettings;
+    });
   };
 
   // 실제 저장 로직(모달 확인 후 실행)
@@ -224,6 +233,8 @@ const MainPage: React.FC<MainPageProps> = ({ session }) => {
         .from("dynamicwave")
         .upsert({ user_id: localSession!.user!.id, settings, tradehistory: emptyTradeHistory });
       setTradeHistory(emptyTradeHistory);
+      // 저장 후 trigger 증가 => 트레이드 생성 useEffect가 재실행됨
+      setTradeGenerationTrigger(prev => prev + 1);
       console.log("설정 저장 및 tradehistory 초기화 완료");
       setSaveStatus('success');
       setTimeout(() => setSaveStatus('idle'), 2000);
