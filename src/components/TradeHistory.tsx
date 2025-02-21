@@ -131,19 +131,67 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     const yesterdayStr = yesterday.toISOString().split("T")[0];
     console.log("계산된 어제 날짜:", yesterdayStr);
 
-    // 초기 Trade 내역에서 치고 어제 날짜이거나(daysUntilSell === 0) 조건을 만족하는 거래 중,
-    // targetSellPrice가 0보다 큰 거래를 찾습니다.
-    const yesterdaySell = initialTrades.find((trade) => {
-      // trade.buyDate가 DB에 저장될 때 ISO DateTime 형식으로 저장되었다면
-      // 날짜 부분만 추출해 비교합니다.
+    // 먼저 DB에 어제 트레이드가 존재하는지 확인합니다.
+    const existingYesterdayTrade = initialTrades.find((trade) => {
       const tradeBuyDateStr = new Date(trade.buyDate).toISOString().split("T")[0];
-      return (tradeBuyDateStr === yesterdayStr || trade.daysUntilSell === 0) &&
-             trade.targetSellPrice > 0;
+      return tradeBuyDateStr === yesterdayStr && trade.targetSellPrice > 0;
     });
-    console.log("계산된 yesterdaySell:", yesterdaySell);
-    // yesterdaySell이 유효할 때만 onUpdateYesterdaySell 호출
-    if (yesterdaySell && onUpdateYesterdaySell) {
-      onUpdateYesterdaySell(yesterdaySell);
+
+    if (existingYesterdayTrade) {
+      console.log("계산된 yesterdaySell:", existingYesterdayTrade);
+      if (onUpdateYesterdaySell) {
+        onUpdateYesterdaySell(existingYesterdayTrade);
+      }
+    } else {
+      // 어제 트레이드가 존재하지 않으므로, closingPrices에서 어제 종가를 조회합니다.
+      const yesterdayClosing = closingPrices.find((priceEntry) => {
+        const priceDateStr = new Date(priceEntry.date).toISOString().split("T")[0];
+        return priceDateStr === yesterdayStr;
+      });
+
+      if (yesterdayClosing) {
+        const currentPrice = parseFloat(yesterdayClosing.price);
+
+        // API로 받아온 modes 데이터를 사용해 어제 날짜의 모드를 결정합니다.
+        const finalModes = await waitForModes(modes || null);
+        const sortedModes = finalModes ? [...finalModes].sort((a, b) => a.date.localeCompare(b.date)) : [];
+        const modeFromApi: "safe" | "aggressive" = sortedModes.length > 0
+          ? findModeForDateNoWait(yesterdayStr, sortedModes)
+          : "safe";
+
+        // 모드에 따라 매수/매도 퍼센트 및 만기일을 설정합니다.
+        const buyPercent = modeFromApi === "safe" ? settings.safeBuyPercent : settings.aggressiveBuyPercent;
+        const sellPercent = modeFromApi === "safe" ? settings.safeSellPercent : settings.aggressiveSellPercent;
+        const daysUntilSell = modeFromApi === "safe" ? settings.safeMaxDays : settings.aggressiveMaxDays;
+
+        const targetBuyPrice = currentPrice * (1 + buyPercent / 100);
+        const actualBuyPrice = currentPrice;
+        const quantity = Math.floor(settings.currentInvestment / settings.seedDivision / targetBuyPrice);
+        const targetSellPrice = actualBuyPrice * (1 + sellPercent / 100);
+        const nextTradeIndex = (initialTrades[initialTrades.length - 1]?.tradeIndex || 0) + 1;
+
+        const newYesterdayTrade: Trade = {
+          tradeIndex: nextTradeIndex,
+          buyDate: yesterdayStr,
+          mode: modeFromApi,
+          targetBuyPrice,
+          actualBuyPrice,
+          quantity,
+          targetSellPrice,
+          // 해당 모드에 따른 최대 거래일을 daysUntilSell로 설정합니다.
+          daysUntilSell,
+          seedForDay: settings.currentInvestment,
+          dailyProfit: 0,
+          withdrawalAmount: settings.withdrawalAmount,
+          actualwithdrawalAmount: 0,
+        };
+        console.log("생성된 어제 트레이드:", newYesterdayTrade);
+        if (onUpdateYesterdaySell) {
+          onUpdateYesterdaySell(newYesterdayTrade);
+        }
+      } else {
+        console.warn("어제 종가가 존재하지 않습니다. 어제 트레이드를 생성할 수 없습니다.");
+      }
     }
     return;
   } 
