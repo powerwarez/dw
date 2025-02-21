@@ -1,8 +1,15 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
-const supabaseKey = import.meta.env.VITE_SUPABASE_API_KEY || "";
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabaseUrl = process.env.REACT_APP_SUPABASE_URL as string;
+const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY as string;
+
+const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,       // 세션 정보를 localStorage에 저장함
+    autoRefreshToken: true,     // 토큰 자동 갱신 활성화
+    detectSessionInUrl: true,   // OAuth 완료 후 URL에 포함된 세션 정보를 자동으로 캐치함
+  }
+});
 
 export default supabase;
 
