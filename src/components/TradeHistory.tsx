@@ -189,6 +189,16 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         if (onUpdateYesterdaySell) {
           onUpdateYesterdaySell(newYesterdayTrade);
         }
+        // 생성된 어제 트레이드를 DB의 tradehistory에 추가합니다.
+        const updatedTrades = [...initialTrades, newYesterdayTrade];
+        setTrades(updatedTrades);
+        if (onTradesUpdate) {
+          onTradesUpdate(updatedTrades);
+        }
+        supabase
+          .from("dynamicwave")
+          .upsert({ user_id: userId, settings: { ...settings }, tradehistory: updatedTrades })
+          .then(() => console.log("새 어제 트레이드가 DB에 추가되었습니다."));
       } else {
         console.warn("어제 종가가 존재하지 않습니다. 어제 트레이드를 생성할 수 없습니다.");
       }
