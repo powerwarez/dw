@@ -182,27 +182,29 @@ const MainPage: React.FC = () => {
 
   useEffect(() => {
     const fetchModes = async () => {
-      try {
-        const response = await fetch(
-          "https://mode-api-powerwarezs-projects.vercel.app/api"
-        );
-        console.log("API response:", response);
-        if (!response.ok) {
-          throw new Error("Failed to fetch modes data");
-        }
+      while (true) {
+        try {
+          const response = await fetch("https://mode-api-powerwarezs-projects.vercel.app/api");
+          console.log("API response:", response);
+          if (!response.ok) {
+            throw new Error("Failed to fetch modes data");
+          }
 
-        // 응답 본문을 문자열로 가져온 후, 비어있는지 확인합니다.
-        const text = await response.text();
-        if (!text) {
-          console.warn("응답 본문이 비어 있습니다.");
-          return;
-        }
+          const text = await response.text();
+          if (!text) {
+            console.warn("응답 본문이 비어 있습니다. 0.5초 후 재시도합니다.");
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            continue;
+          }
 
-        const data: ApiResponse = JSON.parse(text);
-        console.log("API data:", data);
-        setModes(data.mode);
-      } catch (error) {
-        console.error("Error fetching modes:", error);
+          const data: ApiResponse = JSON.parse(text);
+          console.log("API data:", data);
+          setModes(data.mode);
+          break;
+        } catch (error) {
+          console.error("Error fetching modes:", error);
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
       }
     };
     fetchModes();
