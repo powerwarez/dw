@@ -75,6 +75,7 @@ const getLabel = (key: string) => {
     lossCompounding: "손실 복리 %",
     fee: "수수료",
     withdrawalAmount: "인출 금액",
+    currentInvestment: "현재 투자금",
   };
   return labels[key] || key;
 };

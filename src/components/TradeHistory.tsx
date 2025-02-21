@@ -9,7 +9,7 @@ export interface PriceEntry {
   price: string;
 }
 
-interface Settings {
+export interface Settings {
   startDate: string;
   safeBuyPercent: number;
   safeSellPercent: number;
@@ -22,6 +22,7 @@ interface Settings {
   aggressiveMaxDays: number;
   withdrawalAmount: number;
   currentInvestment: number;
+  seedUpdates?: { [date: string]: number };
 }
 
 interface ModeItem {
@@ -422,11 +423,20 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         }
 
         if (updatedSeed !== settings.currentInvestment) {
-          const updatedSettings: Settings = { ...settings, currentInvestment: updatedSeed };
-          supabase
-            .from("dynamicwave")
-            .upsert({ user_id: userId, settings: updatedSettings, tradehistory: newTrades })
-            .then(() => console.log("Seed updated in DB from TradeHistory"))
+          const todayStr = new Date().toISOString().split("T")[0];
+          // 기존 seedUpdates가 없으면 빈 객체 초기화
+          const seedUpdates = settings.seedUpdates ? { ...settings.seedUpdates } : {};
+          if (seedUpdates[todayStr] === undefined) {
+            // 오늘 날짜 기록이 없으므로 업데이트 실행 및 기록 추가
+            seedUpdates[todayStr] = updatedSeed;
+            const updatedSettings: Settings = { ...settings, currentInvestment: updatedSeed, seedUpdates };
+            supabase
+              .from("dynamicwave")
+              .upsert({ user_id: userId, settings: updatedSettings, tradehistory: newTrades })
+              .then(() => console.log("Seed updated in DB from TradeHistory"));
+          } else {
+            console.log("Seed update for today already executed. Skipping update.");
+          }
         }
 
         const yesterdayDateSale = new Date();
@@ -679,11 +689,20 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         }
 
         if (updatedSeed !== settings.currentInvestment) {
-          const updatedSettings: Settings = { ...settings, currentInvestment: updatedSeed };
-          supabase
-            .from("dynamicwave")
-            .upsert({ user_id: userId, settings: updatedSettings, tradehistory: newTrades })
-            .then(() => console.log("Seed updated in DB from TradeHistory"))
+          const todayStr = new Date().toISOString().split("T")[0];
+          // 기존 seedUpdates가 없으면 빈 객체 초기화
+          const seedUpdates = settings.seedUpdates ? { ...settings.seedUpdates } : {};
+          if (seedUpdates[todayStr] === undefined) {
+            // 오늘 날짜 기록이 없으므로 업데이트 실행 및 기록 추가
+            seedUpdates[todayStr] = updatedSeed;
+            const updatedSettings: Settings = { ...settings, currentInvestment: updatedSeed, seedUpdates };
+            supabase
+              .from("dynamicwave")
+              .upsert({ user_id: userId, settings: updatedSettings, tradehistory: newTrades })
+              .then(() => console.log("Seed updated in DB from TradeHistory"));
+          } else {
+            console.log("Seed update for today already executed. Skipping update.");
+          }
         }
 
         const yesterdayDateSale = new Date();
