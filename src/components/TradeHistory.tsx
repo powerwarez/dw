@@ -412,7 +412,8 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         }
 
         if (updatedSeed !== localSettings.currentInvestment) {
-          await checkAndUpdateSeed(updatedSeed, newTrades);
+          const latestTradeDate = newTrades[newTrades.length - 1].buyDate;
+          await checkAndUpdateSeed(updatedSeed, newTrades, latestTradeDate);
         }
 
         const yesterdayDateSale = new Date();
@@ -643,7 +644,8 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         }
 
         if (updatedSeed !== localSettings.currentInvestment) {
-          await checkAndUpdateSeed(updatedSeed, newTrades);
+          const latestTradeDate = newTrades[newTrades.length - 1].buyDate;
+          await checkAndUpdateSeed(updatedSeed, newTrades, latestTradeDate);
         }
 
         const yesterdayDateSale = new Date();
@@ -791,8 +793,8 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
   };
 
   // 새로운 함수: DB에서 seed 업데이트 기록을 가져와, 계산된 seed와 비교 후 업데이트 실행
-  const checkAndUpdateSeed = async (calculatedSeed: number, tradesToUpdate: Trade[]) => {
-    const todayStr = new Date().toISOString().split("T")[0];
+  const checkAndUpdateSeed = async (calculatedSeed: number, tradesToUpdate: Trade[], tradeDate: string) => {
+    const recordDate = tradeDate; // 시드 업데이트를 발생시킨 트레이드의 날짜를 사용합니다.
     const { data: dbData, error } = await supabase
       .from("dynamicwave")
       .select("updatedSeed, settings")
@@ -803,11 +805,17 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
       return;
     }
 
-    // updatedSeed는 dynamicwave 테이블의 별도 열로, JSON 객체 { date: string, value: number } 형식으로 저장되어 있다고 가정합니다.
-    const updatedSeedRecord = dbData.updatedSeed;
-    if (!updatedSeedRecord || updatedSeedRecord.date !== todayStr) {
-      // 오늘 날짜 기록이 없으므로 업데이트 실행 및 기록 추가
-      const newUpdatedSeedRecord = { date: todayStr, value: calculatedSeed };
+    // updatedSeed 열은 seed 업데이트 기록을 저장하는 배열로 가정합니다.
+    let updatedSeedRecords: { date: string; value: number }[] = [];
+    if (dbData.updatedSeed && Array.isArray(dbData.updatedSeed)) {
+      updatedSeedRecords = dbData.updatedSeed;
+    }
+    // 오늘 날짜에 해당하는 seed 업데이트 기록이 이미 있는지 확인합니다.
+    const recordExists = updatedSeedRecords.some((record) => record.date === recordDate);
+
+    if (!recordExists) {
+      const newRecord = { date: recordDate, value: calculatedSeed };
+      updatedSeedRecords.push(newRecord);
       const updatedSettings: Settings = { ...dbData.settings, currentInvestment: calculatedSeed };
       await supabase
         .from("dynamicwave")
@@ -815,12 +823,12 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
           user_id: userId,
           settings: updatedSettings,
           tradehistory: tradesToUpdate,
-          updatedSeed: newUpdatedSeedRecord,
+          updatedSeed: updatedSeedRecords,
         });
-      console.log("Seed updated in DB from TradeHistory", JSON.stringify(newUpdatedSeedRecord));
+      console.log("Seed updated in DB from TradeHistory", JSON.stringify(newRecord));
       setSettings(updatedSettings); // 로컬 상태 업데이트
     } else {
-      console.log("Seed update for today already executed.", updatedSeedRecord);
+      console.log("Seed update for today already executed.", updatedSeedRecords);
     }
   };
 
