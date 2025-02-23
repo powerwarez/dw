@@ -394,14 +394,18 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
             }
           }
 
-          if (newTrades.length % 10 === 0) {
-            const blockTrades = newTrades.slice(-10);
+          if ((newTrades.length + 1) % 10 === 0) {
+            // 이번 거래를 포함하여 10거래 블록을 완성
+            const blockTrades = newTrades.slice(-9).concat(trade);
             updatedSeed = calculateUpdatedSeed(updatedSeed, blockTrades, trade);
             trade.seedForDay = updatedSeed;
+            newTrades.push(trade);
+            // 블록이 완성될 때마다 DB에 시드 업데이트 기록을 누적 저장
+            await checkAndUpdateSeed(updatedSeed, newTrades, trade.buyDate);
+          } else {
+            newTrades.push(trade);
           }
-
           tradeIndex++;
-          newTrades.push(trade);
         }
 
         if (JSON.stringify(newTrades) !== JSON.stringify(trades)) {
@@ -626,14 +630,18 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
             }
           }
 
-          if (newTrades.length % 10 === 0) {
-            const blockTrades = newTrades.slice(-10);
+          if ((newTrades.length + 1) % 10 === 0) {
+            // 이번 거래를 포함하여 10거래 블록을 완성
+            const blockTrades = newTrades.slice(-9).concat(trade);
             updatedSeed = calculateUpdatedSeed(updatedSeed, blockTrades, trade);
             trade.seedForDay = updatedSeed;
+            newTrades.push(trade);
+            // 블록이 완성될 때마다 DB에 시드 업데이트 기록을 누적 저장
+            await checkAndUpdateSeed(updatedSeed, newTrades, trade.buyDate);
+          } else {
+            newTrades.push(trade);
           }
-
           tradeIndex++;
-          newTrades.push(trade);
         }
 
         if (JSON.stringify(newTrades) !== JSON.stringify(trades)) {
