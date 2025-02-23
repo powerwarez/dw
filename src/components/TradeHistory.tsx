@@ -292,9 +292,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
 
             if (futurePrice >= trade.targetSellPrice && trade.quantity > 0) {
               const futureSellDateObj = new Date(futurePriceEntry.date);
-              const futureSellDateStr = futureSellDateObj
-                .toISOString()
-                .split("T")[0];
+              const futureSellDateStr = futureSellDateObj.toISOString().split("T")[0];
 
               trade.sellDate = futureSellDateStr;
               trade.actualSellPrice = futurePrice;
@@ -302,18 +300,21 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
               trade.profit =
                 (trade.actualSellPrice - trade.actualBuyPrice) * trade.quantity;
 
-              if (!dailyProfitMap[futureSellDateStr]) {
-                dailyProfitMap[futureSellDateStr] = {
+              // 매도 날짜 조정: 토/일/월이면 자동으로 지난 금요일 날짜로 조정
+              trade.sellDate = adjustSellDate(trade.sellDate!);
+
+              if (!dailyProfitMap[trade.sellDate]) {
+                dailyProfitMap[trade.sellDate] = {
                   totalProfit: 0,
                   tradeIndex: 0,
                 };
               }
-              dailyProfitMap[futureSellDateStr].totalProfit += trade.profit || 0;
-              dailyProfitMap[futureSellDateStr].tradeIndex =
+              dailyProfitMap[trade.sellDate].totalProfit += trade.profit || 0;
+              dailyProfitMap[trade.sellDate].tradeIndex =
                 trade.tradeIndex || 0;
 
               console.log(
-                `[DEBUG] 매도일: ${futureSellDateStr}, 매도가: ${futurePrice}, targetSellPrice: ${trade.targetSellPrice}, dailyProfitMap[${futureSellDateStr}] = ${dailyProfitMap[futureSellDateStr].totalProfit}`
+                `[DEBUG] 매도일: ${trade.sellDate}, 매도가: ${trade.actualSellPrice}, targetSellPrice: ${trade.targetSellPrice}, dailyProfitMap[${trade.sellDate}] = ${dailyProfitMap[trade.sellDate].totalProfit}`
               );
               break;
             }
@@ -363,6 +364,8 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                       newTrades[i].profit =
                         (autoSellPrice - newTrades[i].actualBuyPrice) *
                         newTrades[i].quantity;
+                      // 매도 날짜 조정: 매도일이 토/일/월이면 금요일 날짜로 조정
+                      newTrades[i].sellDate = adjustSellDate(newTrades[i].sellDate!);
                       const sellDate = newTrades[i].sellDate!;
                       if (!dailyProfitMap[sellDate]) {
                         dailyProfitMap[sellDate] = {
@@ -370,8 +373,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                           tradeIndex: newTrades[i].tradeIndex || 0,
                         };
                       }
-                      dailyProfitMap[sellDate].totalProfit +=
-                        newTrades[i].profit || 0;
+                      dailyProfitMap[sellDate].totalProfit += newTrades[i].profit || 0;
                       console.log(
                         `[DEBUG] 자동 매도 처리: ${newTrades[i].buyDate} 거래를 ${autoSellPriceEntry.date}의 종가 ${autoSellPrice}로 매도 처리되었으며, 해당 날짜의 dailyProfit에 profit이 누적되었습니다.`
                       );
@@ -528,9 +530,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
 
             if (futurePrice >= trade.targetSellPrice && trade.quantity > 0) {
               const futureSellDateObj = new Date(futurePriceEntry.date);
-              const futureSellDateStr = futureSellDateObj
-                .toISOString()
-                .split("T")[0];
+              const futureSellDateStr = futureSellDateObj.toISOString().split("T")[0];
 
               trade.sellDate = futureSellDateStr;
               trade.actualSellPrice = futurePrice;
@@ -538,18 +538,21 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
               trade.profit =
                 (trade.actualSellPrice - trade.actualBuyPrice) * trade.quantity;
 
-              if (!dailyProfitMap[futureSellDateStr]) {
-                dailyProfitMap[futureSellDateStr] = {
+              // 매도 날짜 조정: 토/일/월이면 자동으로 지난 금요일 날짜로 조정
+              trade.sellDate = adjustSellDate(trade.sellDate!);
+
+              if (!dailyProfitMap[trade.sellDate]) {
+                dailyProfitMap[trade.sellDate] = {
                   totalProfit: 0,
                   tradeIndex: 0,
                 };
               }
-              dailyProfitMap[futureSellDateStr].totalProfit += trade.profit || 0;
-              dailyProfitMap[futureSellDateStr].tradeIndex =
+              dailyProfitMap[trade.sellDate].totalProfit += trade.profit || 0;
+              dailyProfitMap[trade.sellDate].tradeIndex =
                 trade.tradeIndex || 0;
 
               console.log(
-                `[DEBUG] 매도일: ${futureSellDateStr}, 매도가: ${futurePrice}, targetSellPrice: ${trade.targetSellPrice}, dailyProfitMap[${futureSellDateStr}] = ${dailyProfitMap[futureSellDateStr].totalProfit}`
+                `[DEBUG] 매도일: ${trade.sellDate}, 매도가: ${trade.actualSellPrice}, targetSellPrice: ${trade.targetSellPrice}, dailyProfitMap[${trade.sellDate}] = ${dailyProfitMap[trade.sellDate].totalProfit}`
               );
               break;
             }
@@ -599,6 +602,8 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                       newTrades[i].profit =
                         (autoSellPrice - newTrades[i].actualBuyPrice) *
                         newTrades[i].quantity;
+                      // 매도 날짜 조정: 매도일이 토/일/월이면 금요일 날짜로 조정
+                      newTrades[i].sellDate = adjustSellDate(newTrades[i].sellDate!);
                       const sellDate = newTrades[i].sellDate!;
                       if (!dailyProfitMap[sellDate]) {
                         dailyProfitMap[sellDate] = {
@@ -606,8 +611,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                           tradeIndex: newTrades[i].tradeIndex || 0,
                         };
                       }
-                      dailyProfitMap[sellDate].totalProfit +=
-                        newTrades[i].profit || 0;
+                      dailyProfitMap[sellDate].totalProfit += newTrades[i].profit || 0;
                       console.log(
                         `[DEBUG] 자동 매도 처리: ${newTrades[i].buyDate} 거래를 ${autoSellPriceEntry.date}의 종가 ${autoSellPrice}로 매도 처리되었으며, 해당 날짜의 dailyProfit에 profit이 누적되었습니다.`
                       );
@@ -744,7 +748,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
       if (sellPrice && sellQuantity) {
         updatedTrade.profit =
           ((sellPrice as number) - updatedTrade.actualBuyPrice) *
-          (sellQuantity as number);
+          (sellQuantity as number));
         updatedTrade.dailyProfit = updatedTrade.profit;
 
         if (field === "sellQuantity") {
@@ -838,6 +842,20 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     } else {
       console.log("Seed update for today already executed.", updatedSeedRecords);
     }
+  };
+
+  // 새로운 함수: 매도 날짜를 조정 (토요일이면 -1일, 일요일이면 -2일, 월요일이면 -3일 하여 금요일 날짜로 조정)
+  const adjustSellDate = (sellDateStr: string): string => {
+    const date = new Date(sellDateStr);
+    const day = date.getDay();
+    if (day === 6) { // 토요일
+      date.setDate(date.getDate() - 1);
+    } else if (day === 0) { // 일요일
+      date.setDate(date.getDate() - 2);
+    } else if (day === 1) { // 월요일
+      date.setDate(date.getDate() - 3);
+    }
+    return date.toISOString().split("T")[0];
   };
 
   return (
