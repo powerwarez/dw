@@ -298,7 +298,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
               trade.actualSellPrice = futurePrice;
               trade.sellQuantity = trade.quantity;
               trade.profit =
-                (trade.actualSellPrice - trade.actualBuyPrice) * trade.quantity;
+                ((futurePrice - trade.actualBuyPrice) * trade.quantity);
 
               // 매도 날짜 조정: 토/일/월이면 자동으로 지난 금요일 날짜로 조정
               trade.sellDate = adjustSellDate(trade.sellDate!);
@@ -362,8 +362,8 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                       newTrades[i].actualSellPrice = autoSellPrice;
                       newTrades[i].sellQuantity = newTrades[i].quantity;
                       newTrades[i].profit =
-                        (autoSellPrice - newTrades[i].actualBuyPrice) *
-                        newTrades[i].quantity;
+                        ((autoSellPrice - newTrades[i].actualBuyPrice) *
+                        newTrades[i].quantity);
                       // 매도 날짜 조정: 매도일이 토/일/월이면 금요일 날짜로 조정
                       newTrades[i].sellDate = adjustSellDate(newTrades[i].sellDate!);
                       const sellDate = newTrades[i].sellDate!;
@@ -536,7 +536,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
               trade.actualSellPrice = futurePrice;
               trade.sellQuantity = trade.quantity;
               trade.profit =
-                (trade.actualSellPrice - trade.actualBuyPrice) * trade.quantity;
+                ((futurePrice - trade.actualBuyPrice) * trade.quantity);
 
               // 매도 날짜 조정: 토/일/월이면 자동으로 지난 금요일 날짜로 조정
               trade.sellDate = adjustSellDate(trade.sellDate!);
@@ -600,8 +600,8 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                       newTrades[i].actualSellPrice = autoSellPrice;
                       newTrades[i].sellQuantity = newTrades[i].quantity;
                       newTrades[i].profit =
-                        (autoSellPrice - newTrades[i].actualBuyPrice) *
-                        newTrades[i].quantity;
+                        ((autoSellPrice - newTrades[i].actualBuyPrice) *
+                        newTrades[i].quantity);
                       // 매도 날짜 조정: 매도일이 토/일/월이면 금요일 날짜로 조정
                       newTrades[i].sellDate = adjustSellDate(newTrades[i].sellDate!);
                       const sellDate = newTrades[i].sellDate!;
@@ -748,7 +748,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
       if (sellPrice && sellQuantity) {
         updatedTrade.profit =
           ((sellPrice as number) - updatedTrade.actualBuyPrice) *
-          (sellQuantity as number));
+          (sellQuantity as number);
         updatedTrade.dailyProfit = updatedTrade.profit;
 
         if (field === "sellQuantity") {
