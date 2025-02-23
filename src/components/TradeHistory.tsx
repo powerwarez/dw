@@ -217,7 +217,6 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         const dailyProfitMap: {
           [date: string]: { totalProfit: number; tradeIndex: number };
         } = {};
-        let dailyprofitTenDaySum = 0;
 
         const finalModes = await waitForModes(modes || null);
         const sortedModes = finalModes
@@ -397,28 +396,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
 
           if (newTrades.length % 10 === 0) {
             const blockTrades = newTrades.slice(-10);
-            dailyprofitTenDaySum = blockTrades.reduce(
-              (sum, t) => sum + (t.dailyProfit || 0),
-              0
-            );
-
-            if (dailyprofitTenDaySum > 0) {
-              updatedSeed +=
-                (dailyprofitTenDaySum * settings.profitCompounding) / 100;
-              console.log(
-                `[시드재계산+++] dailyprofitTenDaySum: ${dailyprofitTenDaySum}, updatedSeed: ${updatedSeed}`
-              );
-            } else if (dailyprofitTenDaySum < 0) {
-              updatedSeed +=
-                (dailyprofitTenDaySum * settings.lossCompounding) / 100;
-              console.log(
-                `[시드재계산---] dailyprofitTenDaySum: ${dailyprofitTenDaySum}, updatedSeed: ${updatedSeed}`
-              );
-            } else if (dailyprofitTenDaySum === 0) {
-              updatedSeed += 0;
-            }
-            updatedSeed -= trade.actualwithdrawalAmount || 0;
-
+            updatedSeed = calculateUpdatedSeed(updatedSeed, blockTrades, trade);
             trade.seedForDay = updatedSeed;
           }
 
@@ -434,23 +412,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         }
 
         if (updatedSeed !== localSettings.currentInvestment) {
-          const todayStr = new Date().toISOString().split("T")[0];
-          // 기존 seedUpdates가 없으면 빈 객체 초기화
-          const seedUpdates = localSettings.seedUpdates ? { ...localSettings.seedUpdates } : {};
-          if (seedUpdates[todayStr] === undefined) {
-            // 오늘 날짜 기록이 없으므로 업데이트 실행 및 기록 추가
-            seedUpdates[todayStr] = updatedSeed;
-            const updatedSettings: Settings = { ...localSettings, currentInvestment: updatedSeed, seedUpdates };
-            supabase
-              .from("dynamicwave")
-              .upsert({ user_id: userId, settings: updatedSettings, tradehistory: newTrades })
-              .then(() => {
-                console.log("Seed updated in DB from TradeHistory");
-                setSettings(updatedSettings); // 로컬 상태를 함께 업데이트
-              });
-          } else {
-            console.log("Seed update for today already executed. Skipping update.");
-          }
+          await checkAndUpdateSeed(updatedSeed, newTrades);
         }
 
         const yesterdayDateSale = new Date();
@@ -486,7 +448,6 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         const dailyProfitMap: {
           [date: string]: { totalProfit: number; tradeIndex: number };
         } = {};
-        let dailyprofitTenDaySum = 0;
 
         const finalModes = await waitForModes(modes || null);
         const sortedModes = finalModes
@@ -666,28 +627,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
 
           if (newTrades.length % 10 === 0) {
             const blockTrades = newTrades.slice(-10);
-            dailyprofitTenDaySum = blockTrades.reduce(
-              (sum, t) => sum + (t.dailyProfit || 0),
-              0
-            );
-
-            if (dailyprofitTenDaySum > 0) {
-              updatedSeed +=
-                (dailyprofitTenDaySum * settings.profitCompounding) / 100;
-              console.log(
-                `[시드재계산+++] dailyprofitTenDaySum: ${dailyprofitTenDaySum}, updatedSeed: ${updatedSeed}`
-              );
-            } else if (dailyprofitTenDaySum < 0) {
-              updatedSeed +=
-                (dailyprofitTenDaySum * settings.lossCompounding) / 100;
-              console.log(
-                `[시드재계산---] dailyprofitTenDaySum: ${dailyprofitTenDaySum}, updatedSeed: ${updatedSeed}`
-              );
-            } else if (dailyprofitTenDaySum === 0) {
-              updatedSeed += 0;
-            }
-            updatedSeed -= trade.actualwithdrawalAmount || 0;
-
+            updatedSeed = calculateUpdatedSeed(updatedSeed, blockTrades, trade);
             trade.seedForDay = updatedSeed;
           }
 
@@ -703,23 +643,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         }
 
         if (updatedSeed !== localSettings.currentInvestment) {
-          const todayStr = new Date().toISOString().split("T")[0];
-          // 기존 seedUpdates가 없으면 빈 객체 초기화
-          const seedUpdates = localSettings.seedUpdates ? { ...localSettings.seedUpdates } : {};
-          if (seedUpdates[todayStr] === undefined) {
-            // 오늘 날짜 기록이 없으므로 업데이트 실행 및 기록 추가
-            seedUpdates[todayStr] = updatedSeed;
-            const updatedSettings: Settings = { ...localSettings, currentInvestment: updatedSeed, seedUpdates };
-            supabase
-              .from("dynamicwave")
-              .upsert({ user_id: userId, settings: updatedSettings, tradehistory: newTrades })
-              .then(() => {
-                console.log("Seed updated in DB from TradeHistory");
-                setSettings(updatedSettings); // 로컬 상태를 함께 업데이트
-              });
-          } else {
-            console.log("Seed update for today already executed. Skipping update.");
-          }
+          await checkAndUpdateSeed(updatedSeed, newTrades);
         }
 
         const yesterdayDateSale = new Date();
@@ -838,6 +762,66 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
       newTrades[index] = updatedTrade;
       return newTrades;
     });
+  };
+
+  // 새 함수: updatedSeed를 재계산하는 로직을 캡슐화
+  const calculateUpdatedSeed = (
+    currentSeed: number,
+    blockTrades: Trade[],
+    currentTrade: Trade
+  ): number => {
+    const dailyProfitSum = blockTrades.reduce(
+      (sum, t) => sum + (t.dailyProfit || 0),
+      0
+    );
+    let newSeed = currentSeed;
+    if (dailyProfitSum > 0) {
+      newSeed += (dailyProfitSum * settings.profitCompounding) / 100;
+      console.log(
+        `[시드재계산+++] dailyProfitSum: ${dailyProfitSum}, newSeed: ${newSeed}`
+      );
+    } else if (dailyProfitSum < 0) {
+      newSeed += (dailyProfitSum * settings.lossCompounding) / 100;
+      console.log(
+        `[시드재계산---] dailyProfitSum: ${dailyProfitSum}, newSeed: ${newSeed}`
+      );
+    }
+    newSeed -= currentTrade.actualwithdrawalAmount || 0;
+    return newSeed;
+  };
+
+  // 새로운 함수: DB에서 seed 업데이트 기록을 가져와, 계산된 seed와 비교 후 업데이트 실행
+  const checkAndUpdateSeed = async (calculatedSeed: number, tradesToUpdate: Trade[]) => {
+    const todayStr = new Date().toISOString().split("T")[0];
+    const { data: dbData, error } = await supabase
+      .from("dynamicwave")
+      .select("updatedSeed, settings")
+      .eq("user_id", userId)
+      .single();
+    if (error) {
+      console.error("Seed update fetch error:", error);
+      return;
+    }
+
+    // updatedSeed는 dynamicwave 테이블의 별도 열로, JSON 객체 { date: string, value: number } 형식으로 저장되어 있다고 가정합니다.
+    const updatedSeedRecord = dbData.updatedSeed;
+    if (!updatedSeedRecord || updatedSeedRecord.date !== todayStr) {
+      // 오늘 날짜 기록이 없으므로 업데이트 실행 및 기록 추가
+      const newUpdatedSeedRecord = { date: todayStr, value: calculatedSeed };
+      const updatedSettings: Settings = { ...dbData.settings, currentInvestment: calculatedSeed };
+      await supabase
+        .from("dynamicwave")
+        .upsert({
+          user_id: userId,
+          settings: updatedSettings,
+          tradehistory: tradesToUpdate,
+          updatedSeed: newUpdatedSeedRecord,
+        });
+      console.log("Seed updated in DB from TradeHistory", JSON.stringify(newUpdatedSeedRecord));
+      setSettings(updatedSettings); // 로컬 상태 업데이트
+    } else {
+      console.log("Seed update for today already executed.", updatedSeedRecord);
+    }
   };
 
   return (
