@@ -423,11 +423,14 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         }
 
         // 오늘 매도의 두 유형:
-        // 1. 오늘 마지막으로 매수한 트레이드의 매도
+        // 1. 오늘 마지막으로 매수한 트레이드의 매도 (없으면 마지막 거래를 사용)
         const todayStr = new Date().toISOString().split("T")[0];
-        const lastTradeSale = newTrades.filter(
+        let lastTradeSale = newTrades.filter(
           (trade) => trade.buyDate === todayStr && trade.targetSellPrice > 0
         ).pop();
+        if (!lastTradeSale && newTrades.length > 0) {
+          lastTradeSale = newTrades[newTrades.length - 1];
+        }
         console.log("오늘의 마지막 매수 트레이드의 매도:", lastTradeSale);
         if (lastTradeSale) {
           onUpdateYesterdaySell(lastTradeSale);
@@ -659,11 +662,14 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         }
 
         // 오늘 매도의 두 유형:
-        // 1. 오늘 마지막으로 매수한 트레이드의 매도
+        // 1. 오늘 마지막으로 매수한 트레이드의 매도 (없으면 마지막 거래를 사용)
         const todayStr = new Date().toISOString().split("T")[0];
-        const lastTradeSale = newTrades.filter(
+        let lastTradeSale = newTrades.filter(
           (trade) => trade.buyDate === todayStr && trade.targetSellPrice > 0
         ).pop();
+        if (!lastTradeSale && newTrades.length > 0) {
+          lastTradeSale = newTrades[newTrades.length - 1];
+        }
         console.log("오늘의 마지막 매수 트레이드의 매도:", lastTradeSale);
         if (lastTradeSale) {
           onUpdateYesterdaySell(lastTradeSale);
