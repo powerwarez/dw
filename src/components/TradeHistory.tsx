@@ -422,20 +422,18 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
           await checkAndUpdateSeed(updatedSeed, newTrades, latestTradeDate);
         }
 
-        const yesterdayDateSale = new Date();
-        yesterdayDateSale.setDate(new Date().getDate() - 1);
-        const yesterdayStrSale = yesterdayDateSale.toISOString().split("T")[0];
-
-        const yesterdaySellUpdated = newTrades.find(
-          (trade) =>
-            trade.buyDate === yesterdayStrSale &&
-            trade.targetSellPrice > 0
-        );
-        console.log("yesterdaySell:", yesterdaySellUpdated);
-        if (yesterdaySellUpdated) {
-          onUpdateYesterdaySell(yesterdaySellUpdated);
+        // 오늘 매도의 두 유형:
+        // 1. 오늘 마지막으로 매수한 트레이드의 매도
+        const todayStr = new Date().toISOString().split("T")[0];
+        const lastTradeSale = newTrades.filter(
+          (trade) => trade.buyDate === todayStr && trade.targetSellPrice > 0
+        ).pop();
+        console.log("오늘의 마지막 매수 트레이드의 매도:", lastTradeSale);
+        if (lastTradeSale) {
+          onUpdateYesterdaySell(lastTradeSale);
         }
 
+        // 2. 남은일수가 0인 트레이드의 매도
         const newZeroDayTrades = newTrades.filter(
           (trade) =>
             trade.daysUntilSell === 0 &&
@@ -660,20 +658,18 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
           await checkAndUpdateSeed(updatedSeed, newTrades, latestTradeDate);
         }
 
-        const yesterdayDateSale = new Date();
-        yesterdayDateSale.setDate(new Date().getDate() - 1);
-        const yesterdayStrSale = yesterdayDateSale.toISOString().split("T")[0];
-
-        const yesterdaySellUpdated = newTrades.find(
-          (trade) =>
-            trade.buyDate === yesterdayStrSale &&
-            trade.targetSellPrice > 0
-        );
-        console.log("yesterdaySell:", yesterdaySellUpdated);
-        if (yesterdaySellUpdated) {
-          onUpdateYesterdaySell(yesterdaySellUpdated);
+        // 오늘 매도의 두 유형:
+        // 1. 오늘 마지막으로 매수한 트레이드의 매도
+        const todayStr = new Date().toISOString().split("T")[0];
+        const lastTradeSale = newTrades.filter(
+          (trade) => trade.buyDate === todayStr && trade.targetSellPrice > 0
+        ).pop();
+        console.log("오늘의 마지막 매수 트레이드의 매도:", lastTradeSale);
+        if (lastTradeSale) {
+          onUpdateYesterdaySell(lastTradeSale);
         }
 
+        // 2. 남은일수가 0인 트레이드의 매도
         const newZeroDayTrades = newTrades.filter(
           (trade) =>
             trade.daysUntilSell === 0 &&
