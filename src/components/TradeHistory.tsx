@@ -92,6 +92,9 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
   const [modalSellPrice, setModalSellPrice] = useState<number | undefined>(undefined);
   const [modalSellQuantity, setModalSellQuantity] = useState<number | undefined>(undefined);
 
+  // dailyProfitMap 변수를 선언합니다.
+  const dailyProfitMap: { [date: string]: { totalProfit: number; tradeIndex: number } } = {};
+
   async function waitForModes(
     initModes: ModeItem[] | null
   ): Promise<ModeItem[] | null> {
