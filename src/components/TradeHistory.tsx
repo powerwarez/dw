@@ -423,23 +423,42 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     );
     const key = trade.buyDate;
     const updatedManualFixInfo = { ...manualFixInfo, [key]: modalWithdrawalAmount };
-
+  
     try {
+      // 기존 데이터를 가져옵니다.
+      const { data: existingData, error: fetchError } = await supabase
+        .from("dynamicwave")
+        .select("settings")
+        .eq("user_id", userId)
+        .maybeSingle();
+  
+      if (fetchError) {
+        console.error("기존 데이터 가져오기 실패:", fetchError);
+        return;
+      }
+  
+      // 기존 settings가 있으면 사용하고, 없으면 기본값으로 빈 객체를 설정합니다.
+      const currentSettings = existingData?.settings || {};
+  
+      // 업데이트 시 settings를 포함합니다.
       const { error } = await supabase.from("dynamicwave").upsert({
         user_id: userId,
+        settings: currentSettings, // 기존 settings 유지
         tradehistory: updatedTrades,
         manualFixInfo: updatedManualFixInfo,
       });
-      if (error) console.error("출금액 업데이트 실패:", error);
-      else {
+  
+      if (error) {
+        console.error("출금액 업데이트 실패:", error);
+      } else {
         console.log("출금액 업데이트 성공:", modalWithdrawalAmount);
-        setManualFixInfo(updatedManualFixInfo);
-        setTrades(updatedTrades);
+        setManualFixInfo(updatedManualFixInfo); // 상태 업데이트로 화면 반영
+        setTrades(updatedTrades); // 상태 업데이트로 화면 반영
       }
     } catch (error) {
       console.error("출금액 업데이트 예외 발생:", error);
     }
-    setIsWithdrawalModalOpen(false);
+    setIsWithdrawalModalOpen(false); // 모달 닫기
   };
 
   const openWithdrawalModal = (index: number) => {
