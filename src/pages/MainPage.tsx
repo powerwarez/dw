@@ -490,12 +490,6 @@ const MainPage: React.FC = () => {
             settings={settings}
             onChange={handleSettingsChange}
           />
-          <button
-            onClick={handleSaveSettings}
-            className="mt-4 w-full px-4 py-2 bg-green-500 text-white rounded"
-          >
-            저장
-          </button>
           {saveStatus === 'loading' && (
             <p className="text-center mt-2">저장 중...</p>
           )}
@@ -505,6 +499,12 @@ const MainPage: React.FC = () => {
           {saveStatus === 'error' && (
             <p className="text-center mt-2">저장 실패. 다시 시도해주세요.</p>
           )}
+          <button
+            onClick={handleSaveSettings}
+            className="mt-4 w-full px-4 py-2 bg-green-500 text-white rounded"
+          >
+            저장
+          </button>
         </div>
       </aside>
 
