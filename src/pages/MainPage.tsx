@@ -389,13 +389,6 @@ const MainPage: React.FC = () => {
     setZeroDayTrades(zTrades);
   };
 
-  const handleSeedUpdate = (newSeed: number) => {
-    setSettings((prevSettings) => ({
-      ...prevSettings!,
-      currentInvestment: newSeed,
-    }));
-  };
-
   const lastMode = modes.length > 0 ? modes[modes.length - 1].mode : "safe";
 
   // 렌더링 시작 전 인증 상태 체크 (인증 로딩 중이면 로딩 화면 표시)
@@ -543,7 +536,6 @@ const MainPage: React.FC = () => {
               modes={modes}
               initialTrades={tradeHistory}
               userId={localSession?.user?.id as string}
-              onSeedUpdate={handleSeedUpdate}
             />
           ) : (
             <div className="text-center text-white p-4">
