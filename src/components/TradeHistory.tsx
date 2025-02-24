@@ -341,7 +341,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                     ? settings.safeMaxDays
                     : settings.aggressiveMaxDays;
                 if (buyIndex !== -1) {
-                  // 거래가 남은 일수가 0(오버된 경우)인 상황이라면, expirationIndex를 한 거래일 앞당깁니다.
+                  // 남은 일수가 0인 트레이드의 경우 원하는 매도일이 나오도록 expirationIndex를 조정합니다.
                   const expirationIndex = buyIndex + tradeMaxDays + 1;
                   if (expirationIndex < closingPrices.length) {
                     const expirationDateStr = closingPrices[expirationIndex].date;
@@ -355,8 +355,6 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                       newTrades[i].profit =
                         ((autoSellPrice - newTrades[i].actualBuyPrice) *
                         newTrades[i].quantity);
-                      // 매도 날짜 조정: 매도일이 토/일이면 금요일로 조정 (월요일은 조정하지 않습니다)
-                      newTrades[i].sellDate = adjustSellDate(newTrades[i].sellDate!);
                       const sellDate = newTrades[i].sellDate!;
                       if (!dailyProfitMap[sellDate]) {
                         dailyProfitMap[sellDate] = {
@@ -574,8 +572,8 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                     ? settings.safeMaxDays
                     : settings.aggressiveMaxDays;
                 if (buyIndex !== -1) {
-                  // 거래가 남은 일수가 0(오버된 경우)인 상황이라면, expirationIndex를 한 거래일 앞당깁니다.
-                  const expirationIndex = buyIndex + tradeMaxDays - 1;
+                  // 남은 일수가 0인 트레이드의 경우 원하는 매도일이 나오도록 expirationIndex를 조정합니다.
+                  const expirationIndex = buyIndex + tradeMaxDays + 1;
                   if (expirationIndex < closingPrices.length) {
                     const expirationDateStr = closingPrices[expirationIndex].date;
                     const autoSellIndex = expirationIndex;
@@ -588,8 +586,6 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                       newTrades[i].profit =
                         ((autoSellPrice - newTrades[i].actualBuyPrice) *
                         newTrades[i].quantity);
-                      // 매도 날짜 조정: 매도일이 토/일이면 금요일로 조정 (월요일은 조정하지 않습니다)
-                      newTrades[i].sellDate = adjustSellDate(newTrades[i].sellDate!);
                       const sellDate = newTrades[i].sellDate!;
                       if (!dailyProfitMap[sellDate]) {
                         dailyProfitMap[sellDate] = {
