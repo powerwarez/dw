@@ -221,7 +221,7 @@ const TradeCalculator: React.FC<TradeCalculatorProps> = ({
                     ~
                     {new Date(
                       new Date().setDate(
-                        new Date().getDate() + yesterdaySell.daysUntilSell
+                        new Date().getDate() + yesterdaySell.daysUntilSell + 1
                       )
                     ).toLocaleDateString("ko-KR", {
                       month: "2-digit",
