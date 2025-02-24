@@ -960,10 +960,10 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
             className="absolute inset-0 bg-black opacity-50"
             onClick={() => setIsModalOpen(false)}
           ></div>
-          <div className="bg-white p-4 rounded shadow-lg z-10 w-80">
-            <h3 className="text-lg font-bold mb-4">매도 정보 수정</h3>
+          <div className="bg-gray-800 p-4 rounded shadow-lg z-10 w-80">
+            <h3 className="text-lg font-bold mb-4 text-white">매도 정보 수정</h3>
             <div className="mb-2">
-              <label className="block mb-1">매도 날짜</label>
+              <label className="block mb-1 text-white">매도 날짜</label>
               <DatePicker
                 selected={modalSellDate ? new Date(modalSellDate) : null}
                 onChange={(date) =>
@@ -972,33 +972,33 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                   )
                 }
                 dateFormat="MM-dd"
-                className="border p-1 rounded w-full"
+                className="border border-gray-600 p-1 rounded w-full bg-gray-700 text-white"
               />
             </div>
             <div className="mb-2">
-              <label className="block mb-1">실제 매도가</label>
+              <label className="block mb-1 text-white">실제 매도가</label>
               <input
                 type="number"
-                value={modalSellPrice !== null ? modalSellPrice : ""}
+                value={modalSellPrice !== undefined ? modalSellPrice : ""}
                 onChange={(e) => setModalSellPrice(parseFloat(e.target.value))}
-                className="border p-1 rounded w-full"
+                className="border border-gray-600 p-1 rounded w-full bg-gray-700 text-white"
               />
             </div>
             <div className="mb-2">
-              <label className="block mb-1">매도 수량</label>
+              <label className="block mb-1 text-white">매도 수량</label>
               <input
                 type="number"
-                value={modalSellQuantity !== null ? modalSellQuantity : ""}
+                value={modalSellQuantity !== undefined ? modalSellQuantity : ""}
                 onChange={(e) =>
                   setModalSellQuantity(parseFloat(e.target.value))
                 }
-                className="border p-1 rounded w-full"
+                className="border border-gray-600 p-1 rounded w-full bg-gray-700 text-white"
               />
             </div>
             <div className="flex justify-end mt-4">
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="bg-gray-300 px-3 py-1 rounded mr-2"
+                className="bg-gray-600 px-3 py-1 rounded mr-2 text-white"
               >
                 취소
               </button>
