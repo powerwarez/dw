@@ -668,6 +668,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     };
 
     fetchTrades();
+// eslint-disable-next-line
   }, [closingPrices]);
 
   // 새로운 helper 함수: 블록 단위의 거래 결과를 기반으로 업데이트된 시드를 계산합니다.
