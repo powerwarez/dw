@@ -126,7 +126,6 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
       let tradeIndex = (initialTrades.length > 0 ? initialTrades[initialTrades.length - 1]?.tradeIndex || 0 : 0) + 1;
       let blockCount = 0;
 
-      // existing trades가 있으면 그것을 기반으로 시작
       if (initialTrades && initialTrades.length > 0) {
         console.log("DB에 존재하는 Trade 내역을 사용합니다.");
         newTrades = [...initialTrades];
@@ -191,7 +190,6 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         }
       }
 
-      // 새로운 트레이드 생성
       for (let index = 0; index < closingPrices.length; index++) {
         const priceEntry = closingPrices[index];
         const rawBuyDateObj = new Date(priceEntry.date);
@@ -199,7 +197,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
 
         const buyDateStr = rawBuyDateObj.toISOString().split("T")[0];
         const existingTrade = newTrades.find((t) => t.buyDate === buyDateStr);
-        if (existingTrade) continue; // 이미 존재하는 트레이드는 건너뜀
+        if (existingTrade) continue;
 
         const mode = sortedModes.length > 0 ? findModeForDateNoWait(buyDateStr, sortedModes) : "safe";
         const currentPrice = parseFloat(priceEntry.price);
@@ -300,7 +298,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
   const computeUpdatedSeed = (trades: Trade[], previousSeed: number): number => {
     const blockTrades = trades.slice(-10);
     const totalDailyProfit = blockTrades.reduce((sum, trade) => sum + (trade.dailyProfit || 0), 0);
-    const withdrawal = blockTrades.reduce((sum, trade) => sum + (trade.actualwithdrawalAmount || 0), 0); // 10일 동안의 출금액 합산
+    const withdrawal = blockTrades.reduce((sum, trade) => sum + (trade.actualwithdrawalAmount || 0), 0);
     const compoundedProfit = totalDailyProfit >= 0
       ? totalDailyProfit * (settings.profitCompounding / 100)
       : totalDailyProfit * (settings.lossCompounding / 100);
@@ -516,13 +514,19 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                   <td className="text-center">
                     {trade.buyDate ? (
                       latestUpdatedSeedDate && new Date(trade.buyDate) > new Date(latestUpdatedSeedDate) ? (
-                        <span className="cursor-pointer text-red-500" onClick={() => openWithdrawalModal(index)}>
+                        <span
+                          className="cursor-pointer text-red-500"
+                          onClick={() => openWithdrawalModal(index)} // 마지막 시드 업데이트 이후인 경우에만 클릭 가능
+                        >
                           {trade.manualFixedWithdrawal !== undefined ? trade.manualFixedWithdrawal : "0(예정)"}
                         </span>
-                      ) : (index + 1) % 10 === 0 ? (
-                        <span className="text-red-500">{trade.actualwithdrawalAmount ?? 0}</span>
                       ) : (
-                        <span>{trade.actualwithdrawalAmount ?? 0}</span>
+                        // 마지막 시드 업데이트 이전이거나 같은 날짜인 경우, 클릭 불가
+                        (index + 1) % 10 === 0 ? (
+                          <span className="text-red-500">{trade.actualwithdrawalAmount ?? 0}</span>
+                        ) : (
+                          <span>{trade.actualwithdrawalAmount ?? 0}</span>
+                        )
                       )
                     ) : (
                       <span>-</span>
