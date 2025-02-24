@@ -206,13 +206,10 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
 
         const startDateStr = settings.startDate;
         const startDateObj = new Date(startDateStr);
-        let updatedSeed = settings.currentInvestment;
-        let tradeIndex = 2;
-
+        let currentSeed = settings.currentInvestment;
+        let tradeIndex = (initialTrades[initialTrades.length - 1]?.tradeIndex || 0) + 1;
+        let blockCount = 0;
         const newTrades: Trade[] = [];
-        const dailyProfitMap: {
-          [date: string]: { totalProfit: number; tradeIndex: number };
-        } = {};
 
         const finalModes = await waitForModes(modes || null);
         const sortedModes = finalModes
@@ -254,19 +251,19 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
 
           const quantity = actualBuyPrice
             ? Math.floor(
-                updatedSeed / (settings.seedDivision || 1) / targetBuyPrice
+                currentSeed / (settings.seedDivision || 1) / targetBuyPrice
               )
             : 0;
 
           const trade: Trade = {
-            tradeIndex: tradeIndex,
+            tradeIndex,
             buyDate: buyDateStr,
             mode,
             targetBuyPrice,
             actualBuyPrice,
             quantity,
             targetSellPrice: 0,
-            seedForDay: updatedSeed,
+            seedForDay: currentSeed,
             dailyProfit: 0,
             daysUntilSell: 0,
             withdrawalAmount: settings.withdrawalAmount,
@@ -395,15 +392,22 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
           if ((newTrades.length + 1) % 10 === 0) {
             // 이번 거래를 포함하여 10거래 블록을 완성
             const blockTrades = newTrades.slice(-9).concat(trade);
-            updatedSeed = calculateUpdatedSeed(updatedSeed, blockTrades, trade);
-            trade.seedForDay = updatedSeed;
+            currentSeed = computeUpdatedSeed(blockTrades, currentSeed);
+            trade.seedForDay = currentSeed;
             newTrades.push(trade);
             // 블록이 완성될 때마다 DB에 시드 업데이트 기록을 누적 저장
-            await checkAndUpdateSeed(updatedSeed, newTrades, trade.buyDate);
+            await checkAndUpdateSeed(currentSeed, newTrades, trade.buyDate);
           } else {
             newTrades.push(trade);
           }
           tradeIndex++;
+          blockCount++;
+
+          if (blockCount === 10) {
+            // 10 거래일이 지난 후, 현재 생성된 블록의 결과를 바탕으로 새 시드를 계산합니다.
+            currentSeed = computeUpdatedSeed(newTrades, currentSeed);
+            blockCount = 0;
+          }
         }
 
         if (JSON.stringify(newTrades) !== JSON.stringify(trades)) {
@@ -413,9 +417,9 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
           }
         }
 
-        if (updatedSeed !== localSettings.currentInvestment) {
+        if (currentSeed !== localSettings.currentInvestment) {
           const latestTradeDate = newTrades[newTrades.length - 1].buyDate;
-          await checkAndUpdateSeed(updatedSeed, newTrades, latestTradeDate);
+          await checkAndUpdateSeed(currentSeed, newTrades, latestTradeDate);
         }
 
         // 오늘 매도의 두 유형:
@@ -445,13 +449,10 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
       } else {
         const startDateStr = settings.startDate;
         const startDateObj = new Date(startDateStr);
-        let updatedSeed = settings.currentInvestment;
-        let tradeIndex = 2;
-
+        let currentSeed = settings.currentInvestment;
+        let tradeIndex = (initialTrades[initialTrades.length - 1]?.tradeIndex || 0) + 1;
+        let blockCount = 0;
         const newTrades: Trade[] = [];
-        const dailyProfitMap: {
-          [date: string]: { totalProfit: number; tradeIndex: number };
-        } = {};
 
         const finalModes = await waitForModes(modes || null);
         const sortedModes = finalModes
@@ -493,19 +494,19 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
 
           const quantity = actualBuyPrice
             ? Math.floor(
-                updatedSeed / (settings.seedDivision || 1) / targetBuyPrice
+                currentSeed / (settings.seedDivision || 1) / targetBuyPrice
               )
             : 0;
 
           const trade: Trade = {
-            tradeIndex: tradeIndex,
+            tradeIndex,
             buyDate: buyDateStr,
             mode,
             targetBuyPrice,
             actualBuyPrice,
             quantity,
             targetSellPrice: 0,
-            seedForDay: updatedSeed,
+            seedForDay: currentSeed,
             dailyProfit: 0,
             daysUntilSell: 0,
             withdrawalAmount: settings.withdrawalAmount,
@@ -634,15 +635,22 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
           if ((newTrades.length + 1) % 10 === 0) {
             // 이번 거래를 포함하여 10거래 블록을 완성
             const blockTrades = newTrades.slice(-9).concat(trade);
-            updatedSeed = calculateUpdatedSeed(updatedSeed, blockTrades, trade);
-            trade.seedForDay = updatedSeed;
+            currentSeed = computeUpdatedSeed(blockTrades, currentSeed);
+            trade.seedForDay = currentSeed;
             newTrades.push(trade);
             // 블록이 완성될 때마다 DB에 시드 업데이트 기록을 누적 저장
-            await checkAndUpdateSeed(updatedSeed, newTrades, trade.buyDate);
+            await checkAndUpdateSeed(currentSeed, newTrades, trade.buyDate);
           } else {
             newTrades.push(trade);
           }
           tradeIndex++;
+          blockCount++;
+
+          if (blockCount === 10) {
+            // 10 거래일이 지난 후, 현재 생성된 블록의 결과를 바탕으로 새 시드를 계산합니다.
+            currentSeed = computeUpdatedSeed(newTrades, currentSeed);
+            blockCount = 0;
+          }
         }
 
         if (JSON.stringify(newTrades) !== JSON.stringify(trades)) {
@@ -652,9 +660,9 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
           }
         }
 
-        if (updatedSeed !== localSettings.currentInvestment) {
+        if (currentSeed !== localSettings.currentInvestment) {
           const latestTradeDate = newTrades[newTrades.length - 1].buyDate;
-          await checkAndUpdateSeed(updatedSeed, newTrades, latestTradeDate);
+          await checkAndUpdateSeed(currentSeed, newTrades, latestTradeDate);
         }
 
         // 오늘 매도의 두 유형:
@@ -687,29 +695,17 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     fetchTrades();
   }, [closingPrices, settings, modes]);
 
-  // 새로운 함수: updatedSeed를 재계산하는 로직을 캡슐화
-  const calculateUpdatedSeed = (
-    currentSeed: number,
-    blockTrades: Trade[],
-    currentTrade: Trade
+  // 새로운 helper 함수: 블록 단위의 거래 결과를 기반으로 업데이트된 시드를 계산합니다.
+  // (예시: 해당 블록의 전체 profit 합계와 첫 거래의 withdrawalAmount를 반영)
+  const computeUpdatedSeed = (
+    trades: Trade[],
+    previousSeed: number
   ): number => {
-    const dailyProfitSum = blockTrades.reduce(
-      (sum, t) => sum + (t.dailyProfit || 0),
-      0
-    );
-    let newSeed = currentSeed;
-    if (dailyProfitSum > 0) {
-      newSeed += (dailyProfitSum * settings.profitCompounding) / 100;
-      console.log(
-        `[시드재계산+++] dailyProfitSum: ${dailyProfitSum}, newSeed: ${newSeed}`
-      );
-    } else if (dailyProfitSum < 0) {
-      newSeed += (dailyProfitSum * settings.lossCompounding) / 100;
-      console.log(
-        `[시드재계산---] dailyProfitSum: ${dailyProfitSum}, newSeed: ${newSeed}`
-      );
-    }
-    newSeed -= currentTrade.actualwithdrawalAmount || 0;
+    const blockTrades = trades.slice(-10); // 마지막 10거래(새로 생성된 블록)
+    const totalProfit = blockTrades.reduce((sum, trade) => sum + (trade.profit || 0), 0);
+    const withdrawal = blockTrades[0]?.withdrawalAmount || 0;
+    const newSeed = previousSeed + totalProfit - withdrawal;
+    console.log("computeUpdatedSeed:", { previousSeed, totalProfit, withdrawal, newSeed });
     return newSeed;
   };
 
