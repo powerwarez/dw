@@ -863,64 +863,29 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     fetchManualFixInfo();
   }, [userId]);
 
-  // DB에 출금액 업데이트를 반영하고 업데이트된 trade 배열을 반환합니다.
-  const updateWithdrawalInfo = async (tradeIndex: number, withdrawal: number): Promise<Trade[]> => {
-    const updatedTrades = trades.map((trade) =>
-      trade.tradeIndex === tradeIndex
-        ? { 
-            ...trade, 
-            withdrawalAmount: withdrawal, 
-            actualwithdrawalAmount: withdrawal,
-            manualFixedWithdrawal: withdrawal,  // 수동 수정값 저장
-          }
-        : trade
-    );
 
-    // manualFixInfo 열 업데이트: trade의 buyDate를 키로 사용
-    const tradeToUpdate = trades.find((t) => t.tradeIndex === tradeIndex);
-    const key = tradeToUpdate ? tradeToUpdate.buyDate : tradeIndex.toString();
-    const updatedManualFixInfo = { ...manualFixInfo, [key]: withdrawal };
-
-    try {
-      const { error } = await supabase
-        .from("dynamicwave")
-        .upsert({ 
-          user_id: userId, 
-          tradehistory: updatedTrades,
-          manualFixInfo: updatedManualFixInfo 
-        });
-      if (error) {
-        console.error("출금액 업데이트 실패:", error);
-      } else {
-        console.log("출금액 업데이트 성공", withdrawal);
-        // 로컬 manualFixInfo state 갱신
-        setManualFixInfo(updatedManualFixInfo);
-      }
-    } catch (error) {
-      console.error("출금액 업데이트 예외 발생:", error);
-    }
-    return updatedTrades;
-  };
 
   const handleWithdrawalModalConfirm = async () => {
     if (modalWithdrawalTradeIndex === null) return;
+
     // 선택된 거래의 출금액 업데이트
     const trade = trades[modalWithdrawalTradeIndex];
     const updatedTrades = trades.map((t) =>
       t.tradeIndex === trade.tradeIndex
-        ? {
-            ...t,
-            withdrawalAmount: modalWithdrawalAmount,
-            actualwithdrawalAmount: modalWithdrawalAmount,
-            manualFixedWithdrawal: modalWithdrawalAmount,
-          }
+        ? { 
+             ...t,
+             withdrawalAmount: modalWithdrawalAmount,
+             actualwithdrawalAmount: modalWithdrawalAmount,
+             manualFixedWithdrawal: modalWithdrawalAmount,
+           }
         : t
     );
     
-    // manualFixInfo의 키로 거래의 buyDate를 사용하여 modalWithdrawalAmount 값을 JSON 형식으로 저장
+    // manualFixInfo 업데이트: trade의 buyDate를 키로 사용
     const key = trade.buyDate;
     const updatedManualFixInfo = { ...manualFixInfo, [key]: modalWithdrawalAmount };
 
+    // 데이터베이스에 직접 업로드 (upsert 호출)
     try {
       const { error } = await supabase
         .from("dynamicwave")
@@ -938,6 +903,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     } catch (error) {
       console.error("출금액 업데이트 예외 발생:", error);
     }
+    
     setTrades(updatedTrades);
     setIsWithdrawalModalOpen(false);
   };
