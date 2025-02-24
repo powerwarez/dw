@@ -13,6 +13,7 @@ interface Settings {
   aggressiveBuyPercent: number;
   seedDivision: number;
   currentInvestment: number;
+  seedUpdates?: Record<string, number>;  // dynamicwave 테이블의 updatedSeed 기록
 }
 
 interface Trade {
@@ -126,6 +127,15 @@ const TradeCalculator: React.FC<TradeCalculatorProps> = ({
   const [targetBuyPrice, setTargetBuyPrice] = useState<number>(0);
   const [buyQuantity, setBuyQuantity] = useState<number>(0);
 
+  // Settings.seedUpdates에 값이 있다면 가장 최신 날짜의 seed 값을 사용, 없으면 currentInvestment 사용
+  const latestSeed = React.useMemo(() => {
+    if (settings.seedUpdates && Object.keys(settings.seedUpdates).length > 0) {
+      const sortedDates = Object.keys(settings.seedUpdates).sort();
+      return settings.seedUpdates[sortedDates[sortedDates.length - 1]];
+    }
+    return settings.currentInvestment;
+  }, [settings.seedUpdates, settings.currentInvestment]);
+
   useEffect(() => {
     if (closingPrices.length > 0) {
       // 전일 종가 찾기
@@ -141,17 +151,17 @@ const TradeCalculator: React.FC<TradeCalculatorProps> = ({
       const calculatedTargetBuyPrice =
         previousClosePrice * (1 + buyPercent / 100);
       const calculatedBuyQuantity = Math.floor(
-        settings.currentInvestment / settings.seedDivision / calculatedTargetBuyPrice
+        latestSeed / settings.seedDivision / calculatedTargetBuyPrice
       );
 
       // 상태 업데이트
       setTargetBuyPrice(calculatedTargetBuyPrice);
       setBuyQuantity(calculatedBuyQuantity);
     }
-  }, [closingPrices, settings.currentInvestment, mode, settings]);
+  }, [closingPrices, latestSeed, mode, settings]);
 
   const profitRate =
-    ((settings.currentInvestment - initialInvestment) / initialInvestment) * 100;
+    ((latestSeed - initialInvestment) / initialInvestment) * 100;
 
   return (
     <div className="bg-gray-800 rounded-lg p-6 w-full">
@@ -168,7 +178,7 @@ const TradeCalculator: React.FC<TradeCalculatorProps> = ({
         <div className="bg-gray-700 p-4 rounded">
           <h3 className="text-lg mb-2">현재 투자금</h3>
           <p className="text-2xl font-bold text-green-400">
-            ${settings.currentInvestment.toLocaleString()}
+            ${latestSeed.toLocaleString()}
           </p>
         </div>
         <div className="bg-gray-700 p-4 rounded">
