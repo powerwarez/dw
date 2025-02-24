@@ -158,6 +158,7 @@ const MainPage: React.FC = () => {
       }
     };
     fetchSettings();
+    // eslint-disable-next-line
   }, [localSession]);
 
   useEffect(() => {
@@ -521,6 +522,7 @@ const MainPage: React.FC = () => {
             initialInvestment={settings.initialInvestment}
             mode={mode}
             settings={settings as AppSettings}
+            userId={localSession?.user?.id as string}
             closingPrices={closingPrices}
             yesterdaySell={yesterdaySell}
             zeroDayTrades={zeroDayTrades}

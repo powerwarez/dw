@@ -1,12 +1,6 @@
 import React, { useEffect, useState } from "react";
 import supabase from "../utils/supabase";
 
-// interface Calculation {
-//   targetPrice: number;
-//   buyAmount: number;
-//   reservationPeriod: number;
-// }
-
 interface Settings {
   safeMaxDays: number;
   aggressiveMaxDays: number;
@@ -14,7 +8,6 @@ interface Settings {
   aggressiveBuyPercent: number;
   seedDivision: number;
   currentInvestment: number;
-  seedUpdates?: Record<string, number>;  // dynamicwave 테이블의 updatedSeed 기록
 }
 
 interface Trade {
