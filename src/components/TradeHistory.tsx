@@ -388,9 +388,9 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
 
           // 이번 거래 포함 10거래 블록 완성
           newTrades.push(trade);
-          currentSeed = await updateSeedForTrades(newTrades, currentSeed, trade.buyDate);
+          // 매 거래마다 seed 업데이트 하지 않고, 현재 seed를 그대로 사용합니다.
           trade.seedForDay = currentSeed;
-
+          
           tradeIndex++;
           blockCount++;
 
@@ -620,9 +620,9 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
 
           // 이번 거래 포함 10거래 블록 완성
           newTrades.push(trade);
-          currentSeed = await updateSeedForTrades(newTrades, currentSeed, trade.buyDate);
+          // 매 거래마다 seed 업데이트 하지 않고, 현재 seed를 그대로 사용합니다.
           trade.seedForDay = currentSeed;
-
+          
           tradeIndex++;
           blockCount++;
 
