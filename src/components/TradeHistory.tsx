@@ -88,6 +88,14 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
   const [modalSellPrice, setModalSellPrice] = useState<number | undefined>(undefined);
   const [modalSellQuantity, setModalSellQuantity] = useState<number | undefined>(undefined);
 
+  // 모달 관련 상태 추가 (기존 모달은 매도 관련)
+  const [isWithdrawalModalOpen, setIsWithdrawalModalOpen] = useState(false);
+  const [modalWithdrawalTradeIndex, setModalWithdrawalTradeIndex] = useState<number | null>(null);
+  const [modalWithdrawalAmount, setModalWithdrawalAmount] = useState<number>(0);
+
+  // 최신 updatedSeed 기록의 날짜(문자열)를 저장 (예: "2025-01-16")
+  const [latestUpdatedSeedDate, setLatestUpdatedSeedDate] = useState<string>("");
+
   // dailyProfitMap 변수를 선언합니다.
   const dailyProfitMap: { [date: string]: { totalProfit: number; tradeIndex: number } } = {};
 
@@ -804,6 +812,58 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     return newSeed;
   };
 
+  // userId를 기반으로 dynamicwave 테이블의 updatedSeed를 조회하여 최신 날짜를 저장합니다.
+  useEffect(() => {
+    async function fetchLatestUpdatedSeedDate() {
+      if (!userId) return;
+      const { data, error } = await supabase
+        .from("dynamicwave")
+        .select("updatedSeed")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (error) {
+        console.error("Error fetching updatedSeed in TradeHistory:", error);
+        return;
+      }
+      if (data?.updatedSeed) {
+        if (Array.isArray(data.updatedSeed) && data.updatedSeed.length > 0) {
+          const sorted = data.updatedSeed.sort((a: any, b: any) =>
+            a.date.localeCompare(b.date)
+          );
+          setLatestUpdatedSeedDate(sorted[sorted.length - 1].date);
+        } else if (data.updatedSeed.date) {
+          setLatestUpdatedSeedDate(data.updatedSeed.date);
+        }
+      }
+    }
+    fetchLatestUpdatedSeedDate();
+  }, [userId]);
+
+  // 모달: 매도 정보 수정 모달 (기존)
+  // ...
+
+  // 새 함수: 출금액 수정 모달의 확인 버튼 클릭 시 호출
+  const handleWithdrawalModalConfirm = async () => {
+    if (modalWithdrawalTradeIndex === null) return;
+    const index = modalWithdrawalTradeIndex;
+    const updatedTrade = { ...trades[index] };
+    updatedTrade.withdrawalAmount = modalWithdrawalAmount;
+    updatedTrade.actualwithdrawalAmount = modalWithdrawalAmount;
+
+    const newTrades = [...trades];
+    newTrades[index] = updatedTrade;
+    setTrades(newTrades);
+    // 필요 시, DB 업데이트 함수 호출(예: onSellInfoUpdate 또는 별도 updateWithdrawalInfo 함수)
+    setIsWithdrawalModalOpen(false);
+  };
+
+  const openWithdrawalModal = (index: number) => {
+    const trade = trades[index];
+    setModalWithdrawalTradeIndex(index);
+    setModalWithdrawalAmount(trade.withdrawalAmount ?? 0);
+    setIsWithdrawalModalOpen(true);
+  };
+
   return (
     <div className="bg-gray-800 p-4 rounded">
       <h2 className="text-xl mb-4">거래 내역</h2>
@@ -920,16 +980,19 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                     {trade.dailyProfit?.toFixed(2)}
                   </td>
                   <td className="text-center">
-                    {trade.buyDate !== null ? (
-                      <span
-                        className={
-                          (index + 1) % 10 === 0
-                            ? "text-red-500 font-bold"
-                            : ""
-                        }
-                      >
-                        {trade.actualwithdrawalAmount}
-                      </span>
+                    {trade.buyDate ? (
+                      latestUpdatedSeedDate && (new Date(trade.buyDate) > new Date(latestUpdatedSeedDate)) ? (
+                        <span
+                          className="cursor-pointer text-blue-500"
+                          onClick={() => openWithdrawalModal(index)}
+                        >
+                          0(예정)
+                        </span>
+                      ) : (
+                        <span className="text-center">
+                          {trade.actualwithdrawalAmount ?? 0}
+                        </span>
+                      )
                     ) : (
                       <span>-</span>
                     )}
@@ -992,6 +1055,41 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
               </button>
               <button
                 onClick={handleModalConfirm}
+                className="bg-blue-500 text-white px-3 py-1 rounded"
+              >
+                확인
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isWithdrawalModalOpen && (
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          <div
+            className="absolute inset-0 bg-black opacity-50"
+            onClick={() => setIsWithdrawalModalOpen(false)}
+          ></div>
+          <div className="bg-gray-800 p-4 rounded shadow-lg z-10 w-80">
+            <h3 className="text-lg font-bold mb-4 text-white">출금액 수정</h3>
+            <div className="mb-2">
+              <label className="block mb-1 text-white">출금액</label>
+              <input
+                type="number"
+                value={modalWithdrawalAmount}
+                onChange={(e) => setModalWithdrawalAmount(parseFloat(e.target.value))}
+                className="border border-gray-600 p-1 rounded w-full bg-gray-700 text-white"
+              />
+            </div>
+            <div className="flex justify-end mt-4">
+              <button
+                onClick={() => setIsWithdrawalModalOpen(false)}
+                className="bg-gray-600 px-3 py-1 rounded mr-2 text-white"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleWithdrawalModalConfirm}
                 className="bg-blue-500 text-white px-3 py-1 rounded"
               >
                 확인
