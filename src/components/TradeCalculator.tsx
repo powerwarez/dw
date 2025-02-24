@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import supabase from "../utils/supabase";
 
 // interface Calculation {
 //   targetPrice: number;
@@ -35,6 +36,7 @@ interface TradeCalculatorProps {
   initialInvestment: number;
   mode: "safe" | "aggressive";
   settings: Settings;
+  userId: string;  // 추가: 동파 데이터 조회를 위한 사용자 ID
   yesterdaySell?: Trade;
   closingPrices: PriceEntry[];
   zeroDayTrades?: Trade[];
@@ -120,6 +122,7 @@ const TradeCalculator: React.FC<TradeCalculatorProps> = ({
   initialInvestment,
   mode,
   settings,
+  userId,
   yesterdaySell,
   closingPrices,
   zeroDayTrades,
@@ -127,14 +130,35 @@ const TradeCalculator: React.FC<TradeCalculatorProps> = ({
   const [targetBuyPrice, setTargetBuyPrice] = useState<number>(0);
   const [buyQuantity, setBuyQuantity] = useState<number>(0);
 
-  // Settings.seedUpdates에 값이 있다면 가장 최신 날짜의 seed 값을 사용, 없으면 currentInvestment 사용
-  const latestSeed = React.useMemo(() => {
-    if (settings.seedUpdates && Object.keys(settings.seedUpdates).length > 0) {
-      const sortedDates = Object.keys(settings.seedUpdates).sort();
-      return settings.seedUpdates[sortedDates[sortedDates.length - 1]];
+  // dynamicwave 테이블의 updatedSeed 컬럼 데이터를 조회하여 최신 seed 값을 설정합니다.
+  const [latestSeed, setLatestSeed] = useState<number>(settings.currentInvestment);
+
+  useEffect(() => {
+    async function fetchLatestSeed() {
+      if (!userId) return;
+      const { data, error } = await supabase
+        .from("dynamicwave")
+        .select("updatedSeed")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (error) {
+        console.error("Error fetching updatedSeed from dynamicwave:", error);
+        return;
+      }
+      if (data?.updatedSeed) {
+        // updatedSeed가 배열 형태(예: [{ date: "2025-01-16", value: 78681.93 }, ...])라면
+        if (Array.isArray(data.updatedSeed) && data.updatedSeed.length > 0) {
+          const sorted = data.updatedSeed.sort((a: any, b: any) => 
+            a.date.localeCompare(b.date)
+          );
+          setLatestSeed(sorted[sorted.length - 1].value);
+        } else {
+          setLatestSeed(data.updatedSeed);
+        }
+      }
     }
-    return settings.currentInvestment;
-  }, [settings.seedUpdates, settings.currentInvestment]);
+    fetchLatestSeed();
+  }, [userId]);
 
   useEffect(() => {
     if (closingPrices.length > 0) {
