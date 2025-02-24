@@ -37,8 +37,8 @@ interface AppSettings {
 
 const defaultSettings: AppSettings = {
   initialInvestment: 75000,
-  safeMaxDays: 31,
-  aggressiveMaxDays: 8,
+  safeMaxDays: 30,
+  aggressiveMaxDays: 7,
   startDate: "2025-01-01",
   safeBuyPercent: 3,
   safeSellPercent: 0.2,
