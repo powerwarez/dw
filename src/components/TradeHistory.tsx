@@ -677,15 +677,15 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     previousSeed: number
   ): number => {
     const blockTrades = trades.slice(-10); // 마지막 10거래(새로 생성된 블록)
-    const totalProfit = blockTrades.reduce((sum, trade) => sum + (trade.profit || 0), 0);
+    const totalDailyProfit = blockTrades.reduce((sum, trade) => sum + (trade.dailyProfit || 0), 0);
     const withdrawal = blockTrades[0]?.withdrawalAmount || 0;
     console.log("settings.profitCompounding:", settings.profitCompounding);
     console.log("settings.lossCompounding:", settings.lossCompounding);
-    const compoundedProfit = totalProfit >= 0 
-      ? totalProfit * ((settings.profitCompounding) / 100)
-      : totalProfit * ((settings.lossCompounding) / 100);
+    const compoundedProfit = totalDailyProfit >= 0 
+      ? totalDailyProfit * ((settings.profitCompounding) / 100)
+      : totalDailyProfit * ((settings.lossCompounding) / 100);
     const newSeed = previousSeed + compoundedProfit - withdrawal;
-    console.log("computeUpdatedSeed(여기):", { previousSeed, totalProfit, compoundedProfit, withdrawal, newSeed });
+    console.log("computeUpdatedSeed(여기):", { previousSeed, totalDailyProfit, compoundedProfit, withdrawal, newSeed });
     return newSeed;
   };
 
