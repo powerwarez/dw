@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { FaPencilAlt, FaCheck, FaSpinner } from "react-icons/fa";
+import { FaSpinner } from "react-icons/fa";
 import supabase from "../utils/supabase";
 
 export interface PriceEntry {
@@ -77,24 +77,20 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
 }) => {
   const [isModeLoading, setIsModeLoading] = useState(false);
   const [trades, setTrades] = useState<Trade[]>(initialTrades);
-  const [editPriceIndex, setEditPriceIndex] = useState<number | null>(null);
-  const [editQuantityIndex, setEditQuantityIndex] = useState<number | null>(
-    null
-  );
-  const [tempPrice, setTempPrice] = useState<number | null>(null);
-  const [tempQuantity, setTempQuantity] = useState<number | null>(null);
   const [cachedModes, setCachedModes] = useState<ModeItem[] | null>(null);
-
-  const [editWithdrawalIndex, setEditWithdrawalIndex] = useState<number | null>(
-    null
-  );
-  const [tempWithdrawal, setTempWithdrawal] = useState<number | null>(null);
 
   // prop으로 받은 settings를 로컬 상태로 관리
   const [localSettings, setSettings] = useState<Settings>(settings);
   useEffect(() => {
     setSettings(settings);
   }, [settings]);
+
+  // 새 모달 관련 상태 추가
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalTradeIndex, setModalTradeIndex] = useState<number | null>(null);
+  const [modalSellDate, setModalSellDate] = useState<string>("");
+  const [modalSellPrice, setModalSellPrice] = useState<number | undefined>(undefined);
+  const [modalSellQuantity, setModalSellQuantity] = useState<number | undefined>(undefined);
 
   async function waitForModes(
     initModes: ModeItem[] | null
@@ -691,96 +687,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     fetchTrades();
   }, [closingPrices, settings, modes]);
 
-  const handleEditPriceClick = (index: number) => {
-    setEditPriceIndex(index);
-    setTempPrice(trades[index].actualSellPrice || 0);
-  };
-
-  const handleEditQuantityClick = (index: number) => {
-    setEditQuantityIndex(index);
-    setTempQuantity(trades[index].sellQuantity || 0);
-  };
-
-  const handleCheckPriceClick = async (index: number) => {
-    if (tempPrice !== null) {
-      // 업데이트된 실제 매도가를 로컬 상태에 반영
-      handleInputChange(index, "actualSellPrice", tempPrice);
-      // DB 업데이트: onSellInfoUpdate 호출 (매도가 업데이트)
-      await onSellInfoUpdate(trades[index].tradeIndex, { sellPrice: tempPrice });
-    }
-    setEditPriceIndex(null);
-  };
-
-  const handleCheckQuantityClick = async (index: number) => {
-    if (tempQuantity !== null) {
-      handleInputChange(index, "sellQuantity", tempQuantity);
-      // DB 업데이트: onSellInfoUpdate 호출 (매도 수량 업데이트)
-      await onSellInfoUpdate(trades[index].tradeIndex, { sellQuantity: tempQuantity });
-    }
-    setEditQuantityIndex(null);
-  };
-
-  const handleEditWithdrawalClick = (index: number) => {
-    setEditWithdrawalIndex(index);
-    setTempWithdrawal(trades[index].actualwithdrawalAmount || 0);
-  };
-
-  const handleCheckWithdrawalClick = (index: number) => {
-    if (tempWithdrawal !== null) {
-      handleInputChange(index, "actualwithdrawalAmount", tempWithdrawal);
-    }
-    setEditWithdrawalIndex(null);
-  };
-
-  const handleInputChange = (
-    index: number,
-    field: string,
-    value: string | number
-  ) => {
-    const updatedTrade = { ...trades[index], [field]: value };
-
-    if (field === "actualSellPrice" || field === "sellQuantity") {
-      const sellPrice = Number(
-        field === "actualSellPrice" ? value : updatedTrade.actualSellPrice
-      );
-      const sellQuantity = Number(
-        field === "sellQuantity" ? value : updatedTrade.sellQuantity
-      );
-
-      if (sellPrice && sellQuantity) {
-        updatedTrade.profit =
-          ((sellPrice as number) - updatedTrade.actualBuyPrice) *
-          (sellQuantity as number);
-        updatedTrade.dailyProfit = updatedTrade.profit;
-
-        if (field === "sellQuantity") {
-          updatedTrade.daysUntilSell =
-            updatedTrade.quantity - sellQuantity !== 0
-              ? (updatedTrade.mode === "safe"
-                  ? settings.safeMaxDays
-                  : settings.aggressiveMaxDays) -
-                Math.floor(
-                  (new Date().getTime() -
-                    new Date(updatedTrade.buyDate).getTime()) /
-                    (1000 * 60 * 60 * 24)
-                )
-              : 0;
-        }
-      }
-    }
-
-    if (field === "actualwithdrawalAmount") {
-      updatedTrade.actualwithdrawalAmount = Number(value);
-    }
-
-    setTrades((prevTrades) => {
-      const newTrades = [...prevTrades];
-      newTrades[index] = updatedTrade;
-      return newTrades;
-    });
-  };
-
-  // 새 함수: updatedSeed를 재계산하는 로직을 캡슐화
+  // 새로운 함수: updatedSeed를 재계산하는 로직을 캡슐화
   const calculateUpdatedSeed = (
     currentSeed: number,
     blockTrades: Trade[],
@@ -860,6 +767,55 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     return date.toISOString().split("T")[0];
   };
 
+  // 새 모달 열기 함수: 해당 트레이드의 매도 정보를 모달에 세팅 후 모달 오픈
+  const openSellModal = (index: number) => {
+    const trade = trades[index];
+    setModalTradeIndex(index);
+    setModalSellDate(trade.sellDate || "");
+    setModalSellPrice(trade.actualSellPrice || 0);
+    setModalSellQuantity(trade.sellQuantity || 0);
+    setIsModalOpen(true);
+  };
+
+  // 모달에서 확인 버튼 클릭 시 호출되는 함수 (로컬 상태 업데이트 + DB 업데이트)
+  const handleModalConfirm = async () => {
+    if (modalTradeIndex === null) return;
+    const index = modalTradeIndex;
+    const updatedTrade = { ...trades[index] };
+    updatedTrade.sellDate = modalSellDate;
+    updatedTrade.actualSellPrice = modalSellPrice;
+    updatedTrade.sellQuantity = modalSellQuantity;
+
+    const newTrades = [...trades];
+
+    if (modalSellPrice !== undefined && modalSellQuantity !== undefined) {
+      const tradeProfit =
+        (modalSellPrice - updatedTrade.actualBuyPrice) * modalSellQuantity;
+      updatedTrade.profit = tradeProfit;
+
+      // dailyProfit은 매도된 날짜(modalSellDate)를 buyDate로 가진 거래에 누적합니다.
+      const dailyTradeIndex = newTrades.findIndex(
+        (t) => t.buyDate === modalSellDate
+      );
+      if (dailyTradeIndex !== -1) {
+        const dailyTrade = { ...newTrades[dailyTradeIndex] };
+        dailyTrade.dailyProfit = (dailyTrade.dailyProfit || 0) + tradeProfit;
+        newTrades[dailyTradeIndex] = dailyTrade;
+      } else {
+        updatedTrade.dailyProfit = tradeProfit;
+      }
+    }
+
+    newTrades[index] = updatedTrade;
+    setTrades(newTrades);
+    await onSellInfoUpdate(updatedTrade.tradeIndex, {
+      sellDate: modalSellDate,
+      sellPrice: modalSellPrice,
+      sellQuantity: modalSellQuantity,
+    });
+    setIsModalOpen(false);
+  };
+
   return (
     <div className="bg-gray-800 p-4 rounded">
       <h2 className="text-xl mb-4">거래 내역</h2>
@@ -918,96 +874,43 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                   <td className="text-center">
                     {trade.targetSellPrice.toFixed(2)}
                   </td>
-                  <td className="text-center">
+                  <td
+                    className="text-center cursor-pointer"
+                    onClick={() => openSellModal(index)}
+                  >
                     {trade.actualBuyPrice > 0 ? (
-                      <DatePicker
-                        selected={
-                          trade.sellDate ? new Date(trade.sellDate) : null
-                        }
-                        onChange={(date) => {
-                          const newSellDate = date
-                            ? date.toLocaleDateString("ko-KR", {
-                                month: "2-digit",
-                                day: "2-digit",
-                              })
-                            : "";
-                          handleInputChange(index, "sellDate", newSellDate);
-                          // DB 업데이트: onSellInfoUpdate 호출 (매도일 업데이트)
-                          onSellInfoUpdate(trade.tradeIndex, { sellDate: newSellDate });
-                        }}
-                        dateFormat="MM-dd"
-                        className="bg-gray-600 p-1 rounded w-20"
-                      />
+                      trade.sellDate
+                        ? new Date(trade.sellDate).toLocaleDateString("ko-KR", {
+                            month: "2-digit",
+                            day: "2-digit",
+                          })
+                        : "-"
                     ) : (
                       <span>-</span>
                     )}
                   </td>
-                  <td className="text-center">
+                  <td
+                    className="text-center cursor-pointer"
+                    onClick={() => openSellModal(index)}
+                  >
                     {trade.actualBuyPrice > 0 ? (
-                      editPriceIndex === index ? (
-                        <input
-                          type="number"
-                          value={tempPrice || ""}
-                          onChange={(e) =>
-                            setTempPrice(parseFloat(e.target.value))
-                          }
-                          onWheel={(e) => e.preventDefault()}
-                          className="bg-gray-600 p-1 rounded"
-                        />
-                      ) : (
-                        <span>{trade.actualSellPrice?.toFixed(2)}</span>
-                      )
+                      trade.actualSellPrice !== undefined
+                        ? trade.actualSellPrice.toFixed(2)
+                        : "-"
                     ) : (
                       <span>-</span>
-                    )}
-                    {trade.actualBuyPrice > 0 && (
-                      <button
-                        onClick={() =>
-                          editPriceIndex === index
-                            ? handleCheckPriceClick(index)
-                            : handleEditPriceClick(index)
-                        }
-                      >
-                        {editPriceIndex === index ? (
-                          <FaCheck />
-                        ) : (
-                          <FaPencilAlt />
-                        )}
-                      </button>
                     )}
                   </td>
-                  <td className="text-center">
+                  <td
+                    className="text-center cursor-pointer"
+                    onClick={() => openSellModal(index)}
+                  >
                     {trade.actualBuyPrice > 0 ? (
-                      editQuantityIndex === index ? (
-                        <input
-                          type="number"
-                          value={tempQuantity || ""}
-                          onChange={(e) =>
-                            setTempQuantity(parseFloat(e.target.value))
-                          }
-                          onWheel={(e) => e.preventDefault()}
-                          className="bg-gray-600 p-1 rounded"
-                        />
-                      ) : (
-                        <span>{trade.sellQuantity}</span>
-                      )
+                      typeof trade.sellQuantity === "number"
+                        ? trade.sellQuantity
+                        : "-"
                     ) : (
                       <span>-</span>
-                    )}
-                    {trade.actualBuyPrice > 0 && (
-                      <button
-                        onClick={() =>
-                          editQuantityIndex === index
-                            ? handleCheckQuantityClick(index)
-                            : handleEditQuantityClick(index)
-                        }
-                      >
-                        {editQuantityIndex === index ? (
-                          <FaCheck />
-                        ) : (
-                          <FaPencilAlt />
-                        )}
-                      </button>
                     )}
                   </td>
                   <td className="text-center">
@@ -1030,44 +933,17 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                   </td>
                   <td className="text-center">
                     {trade.buyDate !== null ? (
-                      editWithdrawalIndex === index ? (
-                        <input
-                          type="number"
-                          value={tempWithdrawal || ""}
-                          onChange={(e) =>
-                            setTempWithdrawal(parseFloat(e.target.value))
-                          }
-                          onWheel={(e) => e.preventDefault()}
-                          className="bg-gray-600 p-1 rounded"
-                        />
-                      ) : (
-                        <span
-                          className={
-                            (index + 1) % 10 === 0
-                              ? "text-red-500 font-bold"
-                              : ""
-                          }
-                        >
-                          {trade.actualwithdrawalAmount}
-                        </span>
-                      )
-                    ) : (
-                      <span>-</span>
-                    )}
-                    {trade.actualBuyPrice > 0 && (
-                      <button
-                        onClick={() =>
-                          editWithdrawalIndex === index
-                            ? handleCheckWithdrawalClick(index)
-                            : handleEditWithdrawalClick(index)
+                      <span
+                        className={
+                          (index + 1) % 10 === 0
+                            ? "text-red-500 font-bold"
+                            : ""
                         }
                       >
-                        {editWithdrawalIndex === index ? (
-                          <FaCheck />
-                        ) : (
-                          <FaPencilAlt />
-                        )}
-                      </button>
+                        {trade.actualwithdrawalAmount}
+                      </span>
+                    ) : (
+                      <span>-</span>
                     )}
                   </td>
                 </tr>
@@ -1076,6 +952,66 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
           </table>
         )}
       </div>
+
+      {/* 모달 컴포넌트 추가 */}
+      {isModalOpen && (
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          <div
+            className="absolute inset-0 bg-black opacity-50"
+            onClick={() => setIsModalOpen(false)}
+          ></div>
+          <div className="bg-white p-4 rounded shadow-lg z-10 w-80">
+            <h3 className="text-lg font-bold mb-4">매도 정보 수정</h3>
+            <div className="mb-2">
+              <label className="block mb-1">매도 날짜</label>
+              <DatePicker
+                selected={modalSellDate ? new Date(modalSellDate) : null}
+                onChange={(date) =>
+                  setModalSellDate(
+                    date ? date.toISOString().split("T")[0] : ""
+                  )
+                }
+                dateFormat="MM-dd"
+                className="border p-1 rounded w-full"
+              />
+            </div>
+            <div className="mb-2">
+              <label className="block mb-1">실제 매도가</label>
+              <input
+                type="number"
+                value={modalSellPrice !== null ? modalSellPrice : ""}
+                onChange={(e) => setModalSellPrice(parseFloat(e.target.value))}
+                className="border p-1 rounded w-full"
+              />
+            </div>
+            <div className="mb-2">
+              <label className="block mb-1">매도 수량</label>
+              <input
+                type="number"
+                value={modalSellQuantity !== null ? modalSellQuantity : ""}
+                onChange={(e) =>
+                  setModalSellQuantity(parseFloat(e.target.value))
+                }
+                className="border p-1 rounded w-full"
+              />
+            </div>
+            <div className="flex justify-end mt-4">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="bg-gray-300 px-3 py-1 rounded mr-2"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleModalConfirm}
+                className="bg-blue-500 text-white px-3 py-1 rounded"
+              >
+                확인
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
