@@ -341,7 +341,11 @@ const MainPage: React.FC = () => {
         try {
           await supabase
             .from("dynamicwave")
-            .upsert({ user_id: localSession?.user?.id, settings, tradehistory: merged });
+            .upsert({ 
+              user_id: localSession?.user?.id, 
+              settings: settings,
+              tradehistory: merged
+            });
           console.log("Trade history 저장 성공");
         } catch (error) {
           console.error("Trade history 저장 실패:", error);
@@ -370,7 +374,11 @@ const MainPage: React.FC = () => {
         try {
           await supabase
             .from("dynamicwave")
-            .upsert({ user_id: localSession?.user?.id, settings, tradehistory: updatedTrades });
+            .upsert({ 
+              user_id: localSession?.user?.id, 
+              settings: settings,
+              tradehistory: updatedTrades
+            });
           console.log("매도 정보 업데이트 성공", updates);
         } catch (error) {
           console.error("매도 정보 업데이트 실패:", error);
