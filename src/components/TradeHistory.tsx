@@ -732,13 +732,12 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
   const adjustSellDate = (sellDateStr: string): string => {
     const date = new Date(sellDateStr);
     const day = date.getDay();
-    if (day === 6) { // 토요일
+    if (day === 6) { // 토요일일 경우 금요일로 조정
       date.setDate(date.getDate() - 1);
-    } else if (day === 0) { // 일요일
+    } else if (day === 0) { // 일요일일 경우 금요일로 조정
       date.setDate(date.getDate() - 2);
-    } else if (day === 1) { // 월요일
-      date.setDate(date.getDate() - 3);
     }
+    // 월요일은 조정하지 않아 실제 매도일(예: 2025-02-03)이 그대로 기록됩니다.
     return date.toISOString().split("T")[0];
   };
 
