@@ -152,10 +152,6 @@ const TradeCalculator: React.FC<TradeCalculatorProps> = ({
 
   const profitRate =
     ((settings.currentInvestment - initialInvestment) / initialInvestment) * 100;
-  console.log("zeroDayTrades(received):", zeroDayTrades);
-  console.log("currentSeed:", settings.currentInvestment);
-  console.log("initialInvestment:", initialInvestment);
-  console.log("profitRate:", profitRate);
 
   return (
     <div className="bg-gray-800 rounded-lg p-6 w-full">

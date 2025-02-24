@@ -342,7 +342,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                     : settings.aggressiveMaxDays;
                 if (buyIndex !== -1) {
                   // 거래가 남은 일수가 0(오버된 경우)인 상황이라면, expirationIndex를 한 거래일 앞당깁니다.
-                  const expirationIndex = buyIndex + tradeMaxDays - 1;
+                  const expirationIndex = buyIndex + tradeMaxDays + 1;
                   if (expirationIndex < closingPrices.length) {
                     const expirationDateStr = closingPrices[expirationIndex].date;
                     const autoSellIndex = expirationIndex;
