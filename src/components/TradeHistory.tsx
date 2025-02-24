@@ -79,12 +79,6 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
   const [trades, setTrades] = useState<Trade[]>(initialTrades);
   const [cachedModes, setCachedModes] = useState<ModeItem[] | null>(null);
 
-  // prop으로 받은 settings를 로컬 상태로 관리
-  const [localSettings, setSettings] = useState<Settings>(settings);
-  useEffect(() => {
-    setSettings(settings);
-  }, [settings]);
-
   // 새 모달 관련 상태 추가
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalTradeIndex, setModalTradeIndex] = useState<number | null>(null);
@@ -392,23 +386,17 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
             }
           }
 
-          if ((newTrades.length + 1) % 10 === 0) {
-            // 이번 거래를 포함하여 10거래 블록을 완성
-            const blockTrades = newTrades.slice(-9).concat(trade);
-            currentSeed = computeUpdatedSeed(blockTrades, currentSeed);
-            trade.seedForDay = currentSeed;
-            newTrades.push(trade);
-            // 블록이 완성될 때마다 DB에 시드 업데이트 기록을 누적 저장
-            await checkAndUpdateSeed(currentSeed, newTrades, trade.buyDate);
-          } else {
-            newTrades.push(trade);
-          }
+          // 이번 거래 포함 10거래 블록 완성
+          newTrades.push(trade);
+          currentSeed = await updateSeedForTrades(newTrades, currentSeed, trade.buyDate);
+          trade.seedForDay = currentSeed;
+
           tradeIndex++;
           blockCount++;
 
           if (blockCount === 10) {
-            // 10 거래일이 지난 후, 현재 생성된 블록의 결과를 바탕으로 새 시드를 계산합니다.
-            currentSeed = computeUpdatedSeed(newTrades, currentSeed);
+            // 10 거래일이 지난 후, updateSeedForTrades 함수를 호출하여 DB 업데이트와 함께 새 시드를 계산합니다.
+            currentSeed = await updateSeedForTrades(newTrades, currentSeed, trade.buyDate);
             blockCount = 0;
           }
         }
@@ -418,11 +406,6 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
           if (onTradesUpdate) {
             onTradesUpdate(newTrades);
           }
-        }
-
-        if (currentSeed !== localSettings.currentInvestment) {
-          const latestTradeDate = newTrades[newTrades.length - 1].buyDate;
-          await checkAndUpdateSeed(currentSeed, newTrades, latestTradeDate);
         }
 
         // 오늘 매도의 두 유형:
@@ -635,23 +618,17 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
             }
           }
 
-          if ((newTrades.length + 1) % 10 === 0) {
-            // 이번 거래를 포함하여 10거래 블록을 완성
-            const blockTrades = newTrades.slice(-9).concat(trade);
-            currentSeed = computeUpdatedSeed(blockTrades, currentSeed);
-            trade.seedForDay = currentSeed;
-            newTrades.push(trade);
-            // 블록이 완성될 때마다 DB에 시드 업데이트 기록을 누적 저장
-            await checkAndUpdateSeed(currentSeed, newTrades, trade.buyDate);
-          } else {
-            newTrades.push(trade);
-          }
+          // 이번 거래 포함 10거래 블록 완성
+          newTrades.push(trade);
+          currentSeed = await updateSeedForTrades(newTrades, currentSeed, trade.buyDate);
+          trade.seedForDay = currentSeed;
+
           tradeIndex++;
           blockCount++;
 
           if (blockCount === 10) {
-            // 10 거래일이 지난 후, 현재 생성된 블록의 결과를 바탕으로 새 시드를 계산합니다.
-            currentSeed = computeUpdatedSeed(newTrades, currentSeed);
+            // 10 거래일이 지난 후, updateSeedForTrades 함수를 호출하여 DB 업데이트와 함께 새 시드를 계산합니다.
+            currentSeed = await updateSeedForTrades(newTrades, currentSeed, trade.buyDate);
             blockCount = 0;
           }
         }
@@ -661,11 +638,6 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
           if (onTradesUpdate) {
             onTradesUpdate(newTrades);
           }
-        }
-
-        if (currentSeed !== localSettings.currentInvestment) {
-          const latestTradeDate = newTrades[newTrades.length - 1].buyDate;
-          await checkAndUpdateSeed(currentSeed, newTrades, latestTradeDate);
         }
 
         // 오늘 매도의 두 유형:
@@ -696,10 +668,9 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     };
 
     fetchTrades();
-  }, [closingPrices, settings, modes]);
+  }, [closingPrices]);
 
   // 새로운 helper 함수: 블록 단위의 거래 결과를 기반으로 업데이트된 시드를 계산합니다.
-  // (예시: 해당 블록의 전체 profit 합계와 첫 거래의 withdrawalAmount를 반영)
   const computeUpdatedSeed = (
     trades: Trade[],
     previousSeed: number
@@ -707,8 +678,13 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     const blockTrades = trades.slice(-10); // 마지막 10거래(새로 생성된 블록)
     const totalProfit = blockTrades.reduce((sum, trade) => sum + (trade.profit || 0), 0);
     const withdrawal = blockTrades[0]?.withdrawalAmount || 0;
-    const newSeed = previousSeed + totalProfit - withdrawal;
-    console.log("computeUpdatedSeed:", { previousSeed, totalProfit, withdrawal, newSeed });
+    console.log("settings.profitCompounding:", settings.profitCompounding);
+    console.log("settings.lossCompounding:", settings.lossCompounding);
+    const compoundedProfit = totalProfit >= 0 
+      ? totalProfit * ((settings.profitCompounding) / 100)
+      : totalProfit * ((settings.lossCompounding) / 100);
+    const newSeed = previousSeed + compoundedProfit - withdrawal;
+    console.log("computeUpdatedSeed(여기):", { previousSeed, totalProfit, compoundedProfit, withdrawal, newSeed });
     return newSeed;
   };
 
@@ -746,7 +722,6 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
           updatedSeed: updatedSeedRecords,
         });
       console.log("Seed updated in DB from TradeHistory", JSON.stringify(newRecord));
-      setSettings(updatedSettings); // 로컬 상태 업데이트
     } else {
       console.log("Seed update for today already executed.", updatedSeedRecords);
     }
@@ -813,6 +788,17 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
       sellQuantity: modalSellQuantity,
     });
     setIsModalOpen(false);
+  };
+
+  // 새로운 함수: 주어진 거래 목록과 이전 시드를 기반으로 새 시드를 계산하고, DB 업데이트까지 실행한 후 반환합니다.
+  const updateSeedForTrades = async (
+    trades: Trade[],
+    currentSeed: number,
+    tradeDate: string
+  ): Promise<number> => {
+    const newSeed = computeUpdatedSeed(trades, currentSeed);
+    await checkAndUpdateSeed(newSeed, trades, tradeDate);
+    return newSeed;
   };
 
   return (
