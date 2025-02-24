@@ -62,6 +62,7 @@ export interface TradeHistoryProps {
     tradeIndex: number,
     updates: { sellQuantity?: number; sellPrice?: number; sellDate?: string }
   ) => Promise<void>;
+  onSeedUpdate?: (newSeed: number) => void;
 }
 
 const TradeHistory: React.FC<TradeHistoryProps> = ({
@@ -74,6 +75,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
   modes,
   initialTrades = [],
   onSellInfoUpdate,
+  onSeedUpdate,
 }) => {
   const [isModeLoading, setIsModeLoading] = useState(false);
   const [trades, setTrades] = useState<Trade[]>(initialTrades);
@@ -721,6 +723,9 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
           updatedSeed: updatedSeedRecords,
         });
       console.log("Seed updated in DB from TradeHistory", JSON.stringify(newRecord));
+      if (typeof onSeedUpdate === "function") {
+        onSeedUpdate(calculatedSeed);
+      }
     } else {
       console.log("Seed update for today already executed.", updatedSeedRecords);
     }
