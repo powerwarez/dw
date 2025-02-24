@@ -297,9 +297,11 @@ const MainPage: React.FC = () => {
     setSaveStatus('loading');
     try {
       const emptyTradeHistory: Trade[] = [];
+      const emptyUpdatedSeed: Trade[] = [];
+      const emptyManualFixInfo: Trade[] = [];
       await supabase
         .from("dynamicwave")
-        .upsert({ user_id: localSession.user.id, settings, tradehistory: emptyTradeHistory });
+        .upsert({ user_id: localSession.user.id, settings, tradehistory: emptyTradeHistory, updatedseed: emptyUpdatedSeed, manualfixinfo: emptyManualFixInfo });
       setTradeHistory(emptyTradeHistory);
       // 저장 후 trigger 증가 => 트레이드 생성 useEffect가 재실행됨
       console.log("설정 저장 및 tradehistory 초기화 완료");
