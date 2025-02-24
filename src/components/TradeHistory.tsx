@@ -341,7 +341,8 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                     ? settings.safeMaxDays
                     : settings.aggressiveMaxDays;
                 if (buyIndex !== -1) {
-                  const expirationIndex = buyIndex + tradeMaxDays;
+                  // 거래가 남은 일수가 0(오버된 경우)인 상황이라면, expirationIndex를 한 거래일 앞당깁니다.
+                  const expirationIndex = buyIndex + tradeMaxDays - 1;
                   if (expirationIndex < closingPrices.length) {
                     const expirationDateStr = closingPrices[expirationIndex].date;
                     const autoSellIndex = expirationIndex;
@@ -354,7 +355,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                       newTrades[i].profit =
                         ((autoSellPrice - newTrades[i].actualBuyPrice) *
                         newTrades[i].quantity);
-                      // 매도 날짜 조정: 매도일이 토/일/월이면 금요일 날짜로 조정
+                      // 매도 날짜 조정: 매도일이 토/일이면 금요일로 조정 (월요일은 조정하지 않습니다)
                       newTrades[i].sellDate = adjustSellDate(newTrades[i].sellDate!);
                       const sellDate = newTrades[i].sellDate!;
                       if (!dailyProfitMap[sellDate]) {
@@ -365,7 +366,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                       }
                       dailyProfitMap[sellDate].totalProfit += newTrades[i].profit || 0;
                       console.log(
-                        `[DEBUG] 자동 매도 처리: ${newTrades[i].buyDate} 거래를 ${autoSellPriceEntry.date}의 종가 ${autoSellPrice}로 매도 처리되었으며, 해당 날짜의 dailyProfit에 profit이 누적되었습니다.`
+                        `[DEBUG] 자동 매도 처리: ${newTrades[i].buyDate} 거래를 ${autoSellPriceEntry.date}의 종가 ${autoSellPrice}로 매도 처리하였으며, 해당 날짜의 dailyProfit에 profit이 누적되었습니다.`
                       );
                     } else {
                       console.warn(
@@ -573,7 +574,8 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                     ? settings.safeMaxDays
                     : settings.aggressiveMaxDays;
                 if (buyIndex !== -1) {
-                  const expirationIndex = buyIndex + tradeMaxDays;
+                  // 거래가 남은 일수가 0(오버된 경우)인 상황이라면, expirationIndex를 한 거래일 앞당깁니다.
+                  const expirationIndex = buyIndex + tradeMaxDays - 1;
                   if (expirationIndex < closingPrices.length) {
                     const expirationDateStr = closingPrices[expirationIndex].date;
                     const autoSellIndex = expirationIndex;
@@ -586,7 +588,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                       newTrades[i].profit =
                         ((autoSellPrice - newTrades[i].actualBuyPrice) *
                         newTrades[i].quantity);
-                      // 매도 날짜 조정: 매도일이 토/일/월이면 금요일 날짜로 조정
+                      // 매도 날짜 조정: 매도일이 토/일이면 금요일로 조정 (월요일은 조정하지 않습니다)
                       newTrades[i].sellDate = adjustSellDate(newTrades[i].sellDate!);
                       const sellDate = newTrades[i].sellDate!;
                       if (!dailyProfitMap[sellDate]) {
@@ -597,7 +599,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                       }
                       dailyProfitMap[sellDate].totalProfit += newTrades[i].profit || 0;
                       console.log(
-                        `[DEBUG] 자동 매도 처리: ${newTrades[i].buyDate} 거래를 ${autoSellPriceEntry.date}의 종가 ${autoSellPrice}로 매도 처리되었으며, 해당 날짜의 dailyProfit에 profit이 누적되었습니다.`
+                        `[DEBUG] 자동 매도 처리: ${newTrades[i].buyDate} 거래를 ${autoSellPriceEntry.date}의 종가 ${autoSellPrice}로 매도 처리하였으며, 해당 날짜의 dailyProfit에 profit이 누적되었습니다.`
                       );
                     } else {
                       console.warn(
