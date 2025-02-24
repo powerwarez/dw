@@ -514,9 +514,9 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                   <td className="text-center">
                     {trade.buyDate ? (
                       latestUpdatedSeedDate && new Date(trade.buyDate) > new Date(latestUpdatedSeedDate) ? (
-                        <span
-                          className="cursor-pointer text-red-500"
-                          onClick={() => openWithdrawalModal(index)} // 마지막 시드 업데이트 이후인 경우에만 클릭 가능
+                        <span 
+                          className="cursor-pointer text-red-500" 
+                          onClick={() => openWithdrawalModal(index)}
                         >
                           {trade.manualFixedWithdrawal !== undefined ? trade.manualFixedWithdrawal : "0(예정)"}
                         </span>
