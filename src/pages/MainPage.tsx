@@ -389,21 +389,11 @@ const MainPage: React.FC = () => {
     setZeroDayTrades(zTrades);
   };
 
-  const handleSeedUpdate = async (newSeed: number) => {
+  const handleSeedUpdate = (newSeed: number) => {
     setSettings((prevSettings) => ({
       ...prevSettings!,
       currentInvestment: newSeed,
     }));
-
-    try {
-      const updatedSettings = { ...settings, currentInvestment: newSeed };
-      await supabase
-        .from("dynamicwave")
-        .upsert({ user_id: localSession?.user?.id, settings: updatedSettings });
-      console.log("DB settings currentInvestment updated to newSeed:", newSeed);
-    } catch (error) {
-      console.error("Error updating seed in DB:", error);
-    }
   };
 
   const lastMode = modes.length > 0 ? modes[modes.length - 1].mode : "safe";
