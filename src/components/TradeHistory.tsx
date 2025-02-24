@@ -22,6 +22,7 @@ export interface Settings {
   aggressiveMaxDays: number;
   withdrawalAmount: number;
   currentInvestment: number;
+  manualFixInfo?: { [tradeId: string]: number };
   seedUpdates?: { [date: string]: number };
 }
 
@@ -47,6 +48,7 @@ export interface Trade {
   dailyProfit?: number;
   withdrawalAmount?: number;
   actualwithdrawalAmount?: number;
+  manualFixedWithdrawal?: number;
 }
 
 export interface TradeHistoryProps {
@@ -843,14 +845,26 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
   const updateWithdrawalInfo = async (tradeIndex: number, withdrawal: number): Promise<Trade[]> => {
     const updatedTrades = trades.map((trade) =>
       trade.tradeIndex === tradeIndex
-        ? { ...trade, withdrawalAmount: withdrawal, actualwithdrawalAmount: withdrawal }
+        ? { 
+            ...trade, 
+            withdrawalAmount: withdrawal, 
+            actualwithdrawalAmount: withdrawal,
+            manualFixedWithdrawal: withdrawal,  // 수동 수정값 저장
+          }
         : trade
     );
+
+    // settings.manualFixInfo 업데이트
+    const updatedManualFixInfo = { ...(settings.manualFixInfo || {}), [tradeIndex]: withdrawal };
 
     try {
       const { error } = await supabase
         .from("dynamicwave")
-        .upsert({ user_id: userId, settings, tradehistory: updatedTrades });
+        .upsert({ 
+          user_id: userId, 
+          settings: { ...settings, manualFixInfo: updatedManualFixInfo },
+          tradehistory: updatedTrades 
+        });
       if (error) {
         console.error("출금액 업데이트 실패:", error);
       } else {
@@ -994,7 +1008,11 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                   </td>
                   <td className="text-center">
                     {trade.buyDate ? (
-                      latestUpdatedSeedDate && (new Date(trade.buyDate) > new Date(latestUpdatedSeedDate)) ? (
+                      trade.manualFixedWithdrawal !== undefined ? (
+                        <span className="text-center text-red-500">
+                          {trade.manualFixedWithdrawal}
+                        </span>
+                      ) : latestUpdatedSeedDate && (new Date(trade.buyDate) > new Date(latestUpdatedSeedDate)) ? (
                         <span
                           className="cursor-pointer text-blue-500"
                           onClick={() => openWithdrawalModal(index)}
