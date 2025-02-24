@@ -839,10 +839,30 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     fetchLatestUpdatedSeedDate();
   }, [userId]);
 
-  // 모달: 매도 정보 수정 모달 (기존)
-  // ...
+  // 새 함수: 출금액 업데이트를 DB에 반영 (해당 거래의 업데이트된 출금액을 supabase upsert로 저장)
+  const updateWithdrawalInfo = async (tradeIndex: number, withdrawal: number) => {
+    setTrades((prevTrades) => {
+      const updatedTrades = prevTrades.map((trade) => {
+        if (trade.tradeIndex === tradeIndex) {
+          return { ...trade, withdrawalAmount: withdrawal, actualwithdrawalAmount: withdrawal };
+        }
+        return trade;
+      });
+      (async () => {
+        try {
+          await supabase
+            .from("dynamicwave")
+            .upsert({ user_id: userId, settings, tradehistory: updatedTrades });
+          console.log("출금액 업데이트 성공", withdrawal);
+        } catch (error) {
+          console.error("출금액 업데이트 실패:", error);
+        }
+      })();
+      return updatedTrades;
+    });
+  };
 
-  // 새 함수: 출금액 수정 모달의 확인 버튼 클릭 시 호출
+  // 모달에서 확인 버튼 클릭 시 호출되는 함수 (출금액 수정)
   const handleWithdrawalModalConfirm = async () => {
     if (modalWithdrawalTradeIndex === null) return;
     const index = modalWithdrawalTradeIndex;
@@ -853,7 +873,10 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     const newTrades = [...trades];
     newTrades[index] = updatedTrade;
     setTrades(newTrades);
-    // 필요 시, DB 업데이트 함수 호출(예: onSellInfoUpdate 또는 별도 updateWithdrawalInfo 함수)
+
+    // DB 업데이트 호출: 출금액 업데이트 처리
+    await updateWithdrawalInfo(updatedTrade.tradeIndex, modalWithdrawalAmount);
+
     setIsWithdrawalModalOpen(false);
   };
 
