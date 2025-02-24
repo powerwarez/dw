@@ -839,44 +839,34 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     fetchLatestUpdatedSeedDate();
   }, [userId]);
 
-  // 새 함수: 출금액 업데이트를 DB에 반영 (해당 거래의 업데이트된 출금액을 supabase upsert로 저장)
-  const updateWithdrawalInfo = async (tradeIndex: number, withdrawal: number) => {
-    setTrades((prevTrades) => {
-      const updatedTrades = prevTrades.map((trade) => {
-        if (trade.tradeIndex === tradeIndex) {
-          return { ...trade, withdrawalAmount: withdrawal, actualwithdrawalAmount: withdrawal };
-        }
-        return trade;
-      });
-      (async () => {
-        try {
-          await supabase
-            .from("dynamicwave")
-            .upsert({ user_id: userId, settings, tradehistory: updatedTrades });
-          console.log("출금액 업데이트 성공", withdrawal);
-        } catch (error) {
-          console.error("출금액 업데이트 실패:", error);
-        }
-      })();
-      return updatedTrades;
-    });
+  // DB에 출금액 업데이트를 반영하고 업데이트된 trade 배열을 반환합니다.
+  const updateWithdrawalInfo = async (tradeIndex: number, withdrawal: number): Promise<Trade[]> => {
+    const updatedTrades = trades.map((trade) =>
+      trade.tradeIndex === tradeIndex
+        ? { ...trade, withdrawalAmount: withdrawal, actualwithdrawalAmount: withdrawal }
+        : trade
+    );
+
+    try {
+      const { error } = await supabase
+        .from("dynamicwave")
+        .upsert({ user_id: userId, settings, tradehistory: updatedTrades });
+      if (error) {
+        console.error("출금액 업데이트 실패:", error);
+      } else {
+        console.log("출금액 업데이트 성공", withdrawal);
+      }
+    } catch (error) {
+      console.error("출금액 업데이트 예외 발생:", error);
+    }
+    return updatedTrades;
   };
 
-  // 모달에서 확인 버튼 클릭 시 호출되는 함수 (출금액 수정)
   const handleWithdrawalModalConfirm = async () => {
     if (modalWithdrawalTradeIndex === null) return;
-    const index = modalWithdrawalTradeIndex;
-    const updatedTrade = { ...trades[index] };
-    updatedTrade.withdrawalAmount = modalWithdrawalAmount;
-    updatedTrade.actualwithdrawalAmount = modalWithdrawalAmount;
-
-    const newTrades = [...trades];
-    newTrades[index] = updatedTrade;
-    setTrades(newTrades);
-
-    // DB 업데이트 호출: 출금액 업데이트 처리
-    await updateWithdrawalInfo(updatedTrade.tradeIndex, modalWithdrawalAmount);
-
+    const trade = trades[modalWithdrawalTradeIndex];
+    const updatedTrades = await updateWithdrawalInfo(trade.tradeIndex, modalWithdrawalAmount);
+    setTrades(updatedTrades);
     setIsWithdrawalModalOpen(false);
   };
 
