@@ -342,7 +342,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                     : settings.aggressiveMaxDays;
                 if (buyIndex !== -1) {
                   // 남은 일수가 0인 트레이드의 경우 원하는 매도일이 나오도록 expirationIndex를 조정합니다.
-                  const expirationIndex = buyIndex + tradeMaxDays + 1;
+                  const expirationIndex = buyIndex + tradeMaxDays;
                   if (expirationIndex < closingPrices.length) {
                     const expirationDateStr = closingPrices[expirationIndex].date;
                     const autoSellIndex = expirationIndex;
@@ -573,7 +573,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                     : settings.aggressiveMaxDays;
                 if (buyIndex !== -1) {
                   // 남은 일수가 0인 트레이드의 경우 원하는 매도일이 나오도록 expirationIndex를 조정합니다.
-                  const expirationIndex = buyIndex + tradeMaxDays + 1;
+                  const expirationIndex = buyIndex + tradeMaxDays;
                   if (expirationIndex < closingPrices.length) {
                     const expirationDateStr = closingPrices[expirationIndex].date;
                     const autoSellIndex = expirationIndex;
