@@ -97,6 +97,8 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
 
   // 최신 updatedSeed 기록의 날짜(문자열)를 저장 (예: "2025-01-16")
   const [latestUpdatedSeedDate, setLatestUpdatedSeedDate] = useState<string>("");
+  // dynamicwave 테이블의 manualFixInfo 열을 로컬 state로 관리 (키: 거래의 buyDate, 값: 수정된 출금액)
+  const [manualFixInfo, setManualFixInfo] = useState<{ [key: string]: number }>({});
 
   // dailyProfitMap 변수를 선언합니다.
   const dailyProfitMap: { [date: string]: { totalProfit: number; tradeIndex: number } } = {};
@@ -841,6 +843,26 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     fetchLatestUpdatedSeedDate();
   }, [userId]);
 
+  // 새로운 useEffect: dynamicwave 테이블의 manualFixInfo 열을 조회하여 로컬 state에 저장
+  useEffect(() => {
+    async function fetchManualFixInfo() {
+      if (!userId) return;
+      const { data, error } = await supabase
+        .from("dynamicwave")
+        .select("manualFixInfo")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (error) {
+        console.error("Error fetching manualFixInfo in TradeHistory:", error);
+        return;
+      }
+      if (data && data.manualFixInfo) {
+        setManualFixInfo(data.manualFixInfo);
+      }
+    }
+    fetchManualFixInfo();
+  }, [userId]);
+
   // DB에 출금액 업데이트를 반영하고 업데이트된 trade 배열을 반환합니다.
   const updateWithdrawalInfo = async (tradeIndex: number, withdrawal: number): Promise<Trade[]> => {
     const updatedTrades = trades.map((trade) =>
@@ -854,21 +876,25 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         : trade
     );
 
-    // settings.manualFixInfo 업데이트
-    const updatedManualFixInfo = { ...(settings.manualFixInfo || {}), [tradeIndex]: withdrawal };
+    // manualFixInfo 열 업데이트: trade의 buyDate를 키로 사용
+    const tradeToUpdate = trades.find((t) => t.tradeIndex === tradeIndex);
+    const key = tradeToUpdate ? tradeToUpdate.buyDate : tradeIndex.toString();
+    const updatedManualFixInfo = { ...manualFixInfo, [key]: withdrawal };
 
     try {
       const { error } = await supabase
         .from("dynamicwave")
         .upsert({ 
           user_id: userId, 
-          settings: { ...settings, manualFixInfo: updatedManualFixInfo },
-          tradehistory: updatedTrades 
+          tradehistory: updatedTrades,
+          manualFixInfo: updatedManualFixInfo 
         });
       if (error) {
         console.error("출금액 업데이트 실패:", error);
       } else {
         console.log("출금액 업데이트 성공", withdrawal);
+        // 로컬 manualFixInfo state 갱신
+        setManualFixInfo(updatedManualFixInfo);
       }
     } catch (error) {
       console.error("출금액 업데이트 예외 발생:", error);
