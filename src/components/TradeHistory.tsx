@@ -863,11 +863,9 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     fetchManualFixInfo();
   }, [userId]);
 
-
-
   const handleWithdrawalModalConfirm = async () => {
     if (modalWithdrawalTradeIndex === null) return;
-
+  
     // 선택된 거래의 출금액 업데이트
     const trade = trades[modalWithdrawalTradeIndex];
     const updatedTrades = trades.map((t) =>
@@ -884,7 +882,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     // manualFixInfo 업데이트: trade의 buyDate를 키로 사용
     const key = trade.buyDate;
     const updatedManualFixInfo = { ...manualFixInfo, [key]: modalWithdrawalAmount };
-
+  
     // 데이터베이스에 직접 업로드 (upsert 호출)
     try {
       const { error } = await supabase
@@ -948,113 +946,93 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
               </tr>
             </thead>
             <tbody>
-              {trades.map((trade, index) => (
-                <tr key={index}>
-                  <td className="text-center">
-                    {new Date(trade.buyDate).toLocaleDateString("ko-KR", {
-                      month: "2-digit",
-                      day: "2-digit",
-                    })}
-                  </td>
-                  <td className="text-center">
-                    {trade.mode == "safe" ? (
-                      <span style={{ color: "green" }}>안전</span>
-                    ) : (
-                      <span style={{ color: "red" }}>공세</span>
-                    )}
-                  </td>
-                  <td className="text-center">
-                    {trade.targetBuyPrice.toFixed(2)}
-                  </td>
-                  <td className="text-center">
-                    {trade.actualBuyPrice.toFixed(2)}
-                  </td>
-                  <td className="text-center">{trade.quantity}</td>
-                  <td className="text-center">
-                    {trade.targetSellPrice.toFixed(2)}
-                  </td>
-                  <td
-                    className="text-center cursor-pointer"
-                    onClick={() => openSellModal(index)}
-                  >
-                    {trade.actualBuyPrice > 0 ? (
-                      trade.sellDate
-                        ? new Date(trade.sellDate).toLocaleDateString("ko-KR", {
-                            month: "2-digit",
-                            day: "2-digit",
-                          })
-                        : "-"
-                    ) : (
-                      <span>-</span>
-                    )}
-                  </td>
-                  <td
-                    className="text-center cursor-pointer"
-                    onClick={() => openSellModal(index)}
-                  >
-                    {trade.actualBuyPrice > 0 ? (
-                      trade.actualSellPrice !== undefined
-                        ? trade.actualSellPrice.toFixed(2)
-                        : "-"
-                    ) : (
-                      <span>-</span>
-                    )}
-                  </td>
-                  <td
-                    className="text-center cursor-pointer"
-                    onClick={() => openSellModal(index)}
-                  >
-                    {trade.actualBuyPrice > 0 ? (
-                      typeof trade.sellQuantity === "number"
-                        ? trade.sellQuantity
-                        : "-"
-                    ) : (
-                      <span>-</span>
-                    )}
-                  </td>
-                  <td className="text-center">
-                    {trade.actualBuyPrice > 0
-                      ? trade.quantity - (trade.sellQuantity || 0)
-                      : "-"}
-                  </td>
-                  <td className="text-center">
-                    {trade.actualBuyPrice > 0
-                      ? trade.profit?.toFixed(2) || 0
-                      : "-"}
-                  </td>
-                  <td className="text-center">
-                    {trade.quantity - (trade.sellQuantity || 0) > 0
-                      ? trade.daysUntilSell
-                      : "-"}
-                  </td>
-                  <td className="text-center">
-                    {trade.dailyProfit?.toFixed(2)}
-                  </td>
-                  <td className="text-center">
-                    {trade.buyDate ? (
-                      trade.manualFixedWithdrawal !== undefined ? (
-                        <span className="text-center text-red-500">
-                          {trade.manualFixedWithdrawal}
-                        </span>
-                      ) : latestUpdatedSeedDate && (new Date(trade.buyDate) > new Date(latestUpdatedSeedDate)) ? (
-                        <span
-                          className="cursor-pointer text-blue-500"
-                          onClick={() => openWithdrawalModal(index)}
-                        >
-                          0(예정)
-                        </span>
-                      ) : (
-                        <span className="text-center">
-                          {trade.actualwithdrawalAmount ?? 0}
-                        </span>
-                      )
-                    ) : (
-                      <span>-</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
+  {trades.map((trade, index) => (
+    <tr key={index}>
+      <td className="text-center">
+        {new Date(trade.buyDate).toLocaleDateString("ko-KR", {
+          month: "2-digit",
+          day: "2-digit",
+        })}
+      </td>
+      <td className="text-center">
+        {trade.mode === "safe" ? (
+          <span style={{ color: "green" }}>안전</span>
+        ) : (
+          <span style={{ color: "red" }}>공세</span>
+        )}
+      </td>
+      <td className="text-center">{trade.targetBuyPrice.toFixed(2)}</td>
+      <td className="text-center">{trade.actualBuyPrice.toFixed(2)}</td>
+      <td className="text-center">{trade.quantity}</td>
+      <td className="text-center">{trade.targetSellPrice.toFixed(2)}</td>
+      <td
+        className="text-center cursor-pointer"
+        onClick={() => openSellModal(index)}
+      >
+        {trade.actualBuyPrice > 0
+          ? trade.sellDate
+            ? new Date(trade.sellDate).toLocaleDateString("ko-KR", {
+                month: "2-digit",
+                day: "2-digit",
+              })
+            : "-"
+          : "-"}
+      </td>
+      <td
+        className="text-center cursor-pointer"
+        onClick={() => openSellModal(index)}
+      >
+        {trade.actualBuyPrice > 0
+          ? trade.actualSellPrice !== undefined
+            ? trade.actualSellPrice.toFixed(2)
+            : "-"
+          : "-"}
+      </td>
+      <td
+        className="text-center cursor-pointer"
+        onClick={() => openSellModal(index)}
+      >
+        {trade.actualBuyPrice > 0
+          ? typeof trade.sellQuantity === "number"
+            ? trade.sellQuantity
+            : "-"
+          : "-"}
+      </td>
+      <td className="text-center">
+        {trade.actualBuyPrice > 0 ? trade.quantity - (trade.sellQuantity || 0) : "-"}
+      </td>
+      <td className="text-center">
+        {trade.actualBuyPrice > 0 ? trade.profit?.toFixed(2) || 0 : "-"}
+      </td>
+      <td className="text-center">
+        {trade.quantity - (trade.sellQuantity || 0) > 0 ? trade.daysUntilSell : "-"}
+      </td>
+      <td className="text-center">{trade.dailyProfit?.toFixed(2)}</td>
+      <td className="text-center">
+        {trade.buyDate ? (
+          latestUpdatedSeedDate && new Date(trade.buyDate) > new Date(latestUpdatedSeedDate) ? (
+            <span
+              className="cursor-pointer text-red-500"
+              onClick={() => openWithdrawalModal(index)}
+            >
+              {trade.manualFixedWithdrawal !== undefined ? trade.manualFixedWithdrawal : "0(예정)"}
+            </span>
+          ) : (index + 1) % 10 === 0 ? (
+            <span className="text-red-500">
+              {trade.actualwithdrawalAmount ?? 0}
+            </span>
+          ) : (
+            <span>
+              {trade.actualwithdrawalAmount ?? 0}
+            </span>
+          )
+        ) : (
+          <span>-</span>
+        )}
+      </td>
+    </tr>
+  ))}
+</tbody>
           </table>
         )}
       </div>
