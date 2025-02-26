@@ -296,15 +296,20 @@ const MainPage: React.FC = () => {
 
     setSaveStatus('loading');
     try {
+      // 모든 데이터를 초기화합니다
       const emptyTradeHistory: Trade[] = [];
-      const emptyUpdatedSeed: Trade[] = [];
-      const emptyManualFixInfo: Trade[] = [];
       await supabase
         .from("dynamicwave")
-        .upsert({ user_id: localSession.user.id, settings, tradehistory: emptyTradeHistory, updatedseed: emptyUpdatedSeed, manualfixinfo: emptyManualFixInfo });
+        .upsert({ 
+          user_id: localSession.user.id, 
+          settings, 
+          tradehistory: emptyTradeHistory,
+          updatedSeed: [],
+          manualFixInfo: {}
+        });
       setTradeHistory(emptyTradeHistory);
       // 저장 후 trigger 증가 => 트레이드 생성 useEffect가 재실행됨
-      console.log("설정 저장 및 tradehistory 초기화 완료");
+      console.log("설정 저장 및 모든 데이터 초기화 완료");
       setSaveStatus('success');
       setTimeout(() => setSaveStatus('idle'), 2000);
     } catch (error) {
@@ -440,7 +445,7 @@ const MainPage: React.FC = () => {
           <div className="bg-gray-800 p-6 rounded-lg shadow-lg w-96">
             <h2 className="text-xl text-white mb-4">확인</h2>
             <p className="text-white mb-6">
-              기존 트레이드가 삭제되고 새로 생성됩니다. 계속하시겠습니까?
+              기존 트레이드 내역, 시드 업데이트 기록, 출금액 설정 등 모든 데이터가 초기화됩니다. 계속하시겠습니까?
             </p>
             <div className="flex justify-end space-x-4">
               <button

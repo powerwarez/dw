@@ -408,7 +408,8 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         console.error("Error fetching manualFixInfo:", error);
         return;
       }
-      if (data?.manualFixInfo) setManualFixInfo(data.manualFixInfo);
+      // 데이터가 있으면 사용하고, 없으면 빈 객체로 초기화
+      setManualFixInfo(data?.manualFixInfo || {});
     }
     fetchManualFixInfo();
   }, [userId]);
