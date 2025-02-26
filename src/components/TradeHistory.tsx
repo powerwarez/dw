@@ -282,7 +282,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
       }
 
       const todayStr = new Date().toISOString().split("T")[0];
-      let lastTradeSale = newTrades.filter((t) => t.buyDate === todayStr && t.targetSellPrice > 0).pop() || newTrades[newTrades.length - 1];
+      const lastTradeSale = newTrades.filter((t) => t.buyDate === todayStr && t.targetSellPrice > 0).pop() || newTrades[newTrades.length - 1];
       if (lastTradeSale) onUpdateYesterdaySell(lastTradeSale);
 
       const newZeroDayTrades = newTrades.filter(
@@ -296,14 +296,32 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
   }, [closingPrices]);
 
   const computeUpdatedSeed = (trades: Trade[], previousSeed: number): number => {
+    // 최근 10거래일만 계산에 포함 (이전 거래일의 출금액은 계산에 포함하지 않음)
     const blockTrades = trades.slice(-10);
+    
+    // 최근 10거래일의 일일 수익 합계
     const totalDailyProfit = blockTrades.reduce((sum, trade) => sum + (trade.dailyProfit || 0), 0);
+    
+    // 최근 10거래일의 출금액 합계
     const withdrawal = blockTrades.reduce((sum, trade) => sum + (trade.actualwithdrawalAmount || 0), 0);
+    
+    // 수익/손실에 따른 복리 계산
     const compoundedProfit = totalDailyProfit >= 0
       ? totalDailyProfit * (settings.profitCompounding / 100)
       : totalDailyProfit * (settings.lossCompounding / 100);
+    
+    // 새로운 시드 = 이전 시드 + 복리 수익 - 출금액
     const newSeed = previousSeed + compoundedProfit - withdrawal;
-    console.log("computeUpdatedSeed:", { previousSeed, totalDailyProfit, compoundedProfit, withdrawal, newSeed });
+    
+    console.log("computeUpdatedSeed:", { 
+      previousSeed, 
+      totalDailyProfit, 
+      compoundedProfit, 
+      withdrawal, 
+      newSeed,
+      blockTradesDates: blockTrades.map(t => t.buyDate) // 디버깅용: 계산에 포함된 거래일 확인
+    });
+    
     return newSeed;
   };
 
@@ -319,7 +337,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
       return;
     }
 
-    let updatedSeedRecords: { date: string; value: number }[] = Array.isArray(dbData?.updatedSeed) ? dbData.updatedSeed : [];
+    const updatedSeedRecords: { date: string; value: number }[] = Array.isArray(dbData?.updatedSeed) ? dbData.updatedSeed : [];
     if (!updatedSeedRecords.some((record) => record.date === recordDate)) {
       updatedSeedRecords.push({ date: recordDate, value: calculatedSeed });
       const updatedSettings: Settings = { ...dbData?.settings, currentInvestment: calculatedSeed };
@@ -393,7 +411,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         return;
       }
       if (data?.updatedSeed && Array.isArray(data.updatedSeed) && data.updatedSeed.length > 0) {
-        const sorted = data.updatedSeed.sort((a: any, b: any) => a.date.localeCompare(b.date));
+        const sorted = data.updatedSeed.sort((a: { date: string; value: number }, b: { date: string; value: number }) => a.date.localeCompare(b.date));
         setLatestUpdatedSeedDate(sorted[sorted.length - 1].date);
       }
     }
