@@ -32,12 +32,29 @@ const InvestmentSettings: React.FC<InvestmentSettingsProps> = ({
         </div>
         <div className="flex flex-col">
           <label className="text-sm mb-2">투자 시작일</label>
-          <input
-            type="date"
-            value={settings.startDate}
-            onChange={(e) => onChange("startDate", e.target.value)}
-            className="p-2 rounded bg-gray-700 text-white"
-          />
+          <div className="flex flex-col">
+            <input
+              type="date"
+              value={settings.startDate}
+              onChange={(e) => {
+                // 날짜 형식 변환 (YYYY-MM-DD 형식으로 저장)
+                const fullDate = e.target.value;
+                onChange("startDate", fullDate);
+              }}
+              className="p-2 rounded bg-gray-700 text-white"
+            />
+            <div className="text-sm text-white mt-1">
+              {settings.startDate
+                ? `${settings.startDate.substring(
+                    2,
+                    4
+                  )}.${settings.startDate.substring(
+                    5,
+                    7
+                  )}.${settings.startDate.substring(8, 10)}`
+                : ""}
+            </div>
+          </div>
         </div>
         {Object.entries(settings).map(
           ([key, value]) =>

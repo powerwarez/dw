@@ -39,7 +39,7 @@ const defaultSettings: AppSettings = {
   initialInvestment: 75000,
   safeMaxDays: 30,
   aggressiveMaxDays: 7,
-  startDate: "2025-01-01",
+  startDate: "25-01-01",
   safeBuyPercent: 3,
   safeSellPercent: 0.2,
   seedDivision: 7,
@@ -63,7 +63,9 @@ const MainPage: React.FC = () => {
   const [showSidebar, setShowSidebar] = useState(false);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   // 최초 로드된 세팅을 저장 (취소 시 원래대로 복원)
-  const [originalSettings, setOriginalSettings] = useState<AppSettings | null>(null);
+  const [originalSettings, setOriginalSettings] = useState<AppSettings | null>(
+    null
+  );
   const [closingPrices, setClosingPrices] = useState<PriceEntry[]>([]);
   const [tradeHistory, setTradeHistory] = useState<Trade[]>([]);
   const [mode] = useState<"safe" | "aggressive">("safe");
@@ -74,22 +76,27 @@ const MainPage: React.FC = () => {
   const [zeroDayTrades, setZeroDayTrades] = useState<Trade[]>([]);
   const [modes, setModes] = useState<ApiModeItem[]>([]);
   // 저장 상태: idle, loading, success, error
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [saveStatus, setSaveStatus] = useState<
+    "idle" | "loading" | "success" | "error"
+  >("idle");
   // 트레이드 재생성을 위한 trigger 상태
   // 모달 표시 여부
   const [showConfirmSaveModal, setShowConfirmSaveModal] = useState(false);
 
   useEffect(() => {
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("Auth state changed:", event, session);
-      setLocalSession(session);
-    });
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        console.log("Auth state changed:", event, session);
+        setLocalSession(session);
+      }
+    );
     return () => authListener.subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
     // 기존의 getSession 호출에 setLocalSession과 authLoading 업데이트 추가
-    supabase.auth.getSession()
+    supabase.auth
+      .getSession()
       .then(({ data: { session } }) => {
         console.log("Debug - Fetched initial session:", session);
         if (session) {
@@ -103,7 +110,8 @@ const MainPage: React.FC = () => {
         setAuthLoading(false);
       });
 
-    supabase.auth.getUser()
+    supabase.auth
+      .getUser()
       .then(({ data: { user } }) => {
         console.log("Debug - Fetched user from auth:", user);
       })
@@ -115,7 +123,9 @@ const MainPage: React.FC = () => {
   useEffect(() => {
     // 먼저, 세션이 준비되지 않았다면 DB 조회를 하지 않음
     if (!localSession || !localSession.user) {
-      console.error("사용자 로그인이 필요합니다. 설정 데이터를 불러올 수 없습니다.");
+      console.error(
+        "사용자 로그인이 필요합니다. 설정 데이터를 불러올 수 없습니다."
+      );
       return;
     }
 
@@ -126,17 +136,23 @@ const MainPage: React.FC = () => {
           .select("settings, tradehistory")
           .eq("user_id", localSession.user.id)
           .maybeSingle();
-        
+
         if (error) {
           throw error;
         }
 
         if (!data || !data.settings) {
-          console.log("dynamicwave 테이블에 설정 데이터가 없습니다. 기본 설정값을 삽입합니다.");
+          console.log(
+            "dynamicwave 테이블에 설정 데이터가 없습니다. 기본 설정값을 삽입합니다."
+          );
           // 설정 데이터가 없으면 기본 설정값을 삽입 (tradehistory는 빈 배열로 초기화)
           const { error: insertError } = await supabase
             .from("dynamicwave")
-            .insert({ user_id: localSession.user.id, settings: defaultSettings, tradehistory: [] });
+            .insert({
+              user_id: localSession.user.id,
+              settings: defaultSettings,
+              tradehistory: [],
+            });
           if (insertError) {
             console.error("기본 설정값 삽입 중 오류 발생:", insertError);
           }
@@ -151,10 +167,15 @@ const MainPage: React.FC = () => {
           if (!originalSettings) {
             setOriginalSettings(loadedSettings);
           }
-          setTradeHistory(data.tradehistory ? (data.tradehistory as Trade[]) : []);
+          setTradeHistory(
+            data.tradehistory ? (data.tradehistory as Trade[]) : []
+          );
         }
       } catch (error) {
-        console.error("dynamicwave 테이블에서 설정 값을 불러오지 못했습니다:", error);
+        console.error(
+          "dynamicwave 테이블에서 설정 값을 불러오지 못했습니다:",
+          error
+        );
       }
     };
     fetchSettings();
@@ -212,9 +233,13 @@ const MainPage: React.FC = () => {
         }
 
         if (dbMode && dbMode.mode && closingPrices.length > 0) {
-          const lastTradingDate = new Date(closingPrices[closingPrices.length - 1].date);
+          const lastTradingDate = new Date(
+            closingPrices[closingPrices.length - 1].date
+          );
           const dbModeDate = new Date(dbMode.date);
-          const diffTime = Math.abs(lastTradingDate.getTime() - dbModeDate.getTime());
+          const diffTime = Math.abs(
+            lastTradingDate.getTime() - dbModeDate.getTime()
+          );
           const diffDays = diffTime / (1000 * 60 * 60 * 24);
 
           // 최근 거래일과 mode 데이터의 날짜 차이가 10일 이내라면 DB 데이터를 사용합니다.
@@ -231,7 +256,9 @@ const MainPage: React.FC = () => {
       // DB에 유효한 최신 mode 데이터가 없으면 API 요청을 통한 데이터를 사용합니다.
       while (true) {
         try {
-          const response = await fetch("https://mode-api-powerwarezs-projects.vercel.app/api");
+          const response = await fetch(
+            "https://mode-api-powerwarezs-projects.vercel.app/api"
+          );
           console.log("API response:", response);
           if (!response.ok) {
             throw new Error("Failed to fetch modes data");
@@ -260,9 +287,14 @@ const MainPage: React.FC = () => {
   useEffect(() => {
     async function verifyRegistration() {
       if (localSession && localSession.user) {
-        const { data: { user }, error } = await supabase.auth.getUser();
+        const {
+          data: { user },
+          error,
+        } = await supabase.auth.getUser();
         if (error || !user) {
-          console.error("Supabase Auth에 등록되지 않은 사용자입니다. 로그인 페이지로 이동합니다.");
+          console.error(
+            "Supabase Auth에 등록되지 않은 사용자입니다. 로그인 페이지로 이동합니다."
+          );
           await supabase.auth.signOut();
           navigate("/login");
         }
@@ -279,7 +311,8 @@ const MainPage: React.FC = () => {
       };
       // initialInvestment 변경 시 currentInvestment도 업데이트 (문자열이면 number로 변환)
       if (field === "initialInvestment") {
-        updatedSettings.currentInvestment = typeof value === "number" ? value : +value;
+        updatedSettings.currentInvestment =
+          typeof value === "number" ? value : +value;
       }
       return updatedSettings;
     });
@@ -290,32 +323,34 @@ const MainPage: React.FC = () => {
     // 로그인 상태가 유효하지 않다면 DB 작업을 중단합니다.
     if (!localSession || !localSession.user) {
       console.error("사용자 로그인 실패. 설정 저장을 중단합니다.");
-      setSaveStatus('error');
+      setSaveStatus("error");
       return;
     }
 
-    setSaveStatus('loading');
+    setSaveStatus("loading");
     try {
       // 모든 데이터를 초기화합니다
       const emptyTradeHistory: Trade[] = [];
-      await supabase
-        .from("dynamicwave")
-        .upsert({ 
-          user_id: localSession.user.id, 
-          settings, 
-          tradehistory: emptyTradeHistory,
-          updatedSeed: [],
-          manualFixInfo: {}
-        });
+      await supabase.from("dynamicwave").upsert({
+        user_id: localSession.user.id,
+        settings,
+        tradehistory: emptyTradeHistory,
+        updatedSeed: [],
+        manualFixInfo: {},
+      });
       setTradeHistory(emptyTradeHistory);
       // 저장 후 trigger 증가 => 트레이드 생성 useEffect가 재실행됨
       console.log("설정 저장 및 모든 데이터 초기화 완료");
-      setSaveStatus('success');
-      setTimeout(() => setSaveStatus('idle'), 2000);
+      setSaveStatus("success");
+      setTimeout(() => {
+        setSaveStatus("idle");
+        // 설정 저장 후 페이지 새로고침
+        window.location.reload();
+      }, 1000);
     } catch (error) {
       console.error("설정 저장에 실패했습니다:", error);
-      setSaveStatus('error');
-      setTimeout(() => setSaveStatus('idle'), 2000);
+      setSaveStatus("error");
+      setTimeout(() => setSaveStatus("idle"), 2000);
     }
   };
 
@@ -328,7 +363,10 @@ const MainPage: React.FC = () => {
     setShowConfirmSaveModal(true);
   };
 
-  const mergeTrades = (existingTrades: Trade[], newTrades: Trade[]): Trade[] => {
+  const mergeTrades = (
+    existingTrades: Trade[],
+    newTrades: Trade[]
+  ): Trade[] => {
     const mergedMap = new Map<number, Trade>();
     for (const trade of existingTrades) {
       mergedMap.set(trade.tradeIndex, trade);
@@ -336,23 +374,23 @@ const MainPage: React.FC = () => {
     for (const trade of newTrades) {
       mergedMap.set(trade.tradeIndex, trade);
     }
-    return Array.from(mergedMap.values()).sort((a, b) => a.tradeIndex - b.tradeIndex);
+    return Array.from(mergedMap.values()).sort(
+      (a, b) => a.tradeIndex - b.tradeIndex
+    );
   };
 
   const handleTradesUpdate = async (updatedTrades: Trade[]) => {
     // 병합: 기존 tradeHistory와 새롭게 계산된 내역을 합칩니다.
-    setTradeHistory(prevTrades => {
+    setTradeHistory((prevTrades) => {
       const merged = mergeTrades(prevTrades, updatedTrades);
       // DB에 항상 최신 merge 결과를 저장합니다.
       (async () => {
         try {
-          await supabase
-            .from("dynamicwave")
-            .upsert({ 
-              user_id: localSession?.user?.id, 
-              settings: settings,
-              tradehistory: merged
-            });
+          await supabase.from("dynamicwave").upsert({
+            user_id: localSession?.user?.id,
+            settings: settings,
+            tradehistory: merged,
+          });
           console.log("Trade history 저장 성공");
         } catch (error) {
           console.error("Trade history 저장 실패:", error);
@@ -368,8 +406,8 @@ const MainPage: React.FC = () => {
     tradeIndex: number,
     updates: { sellQuantity?: number; sellPrice?: number; sellDate?: string }
   ) => {
-    setTradeHistory(prevTrades => {
-      const updatedTrades = prevTrades.map(trade => {
+    setTradeHistory((prevTrades) => {
+      const updatedTrades = prevTrades.map((trade) => {
         if (trade.tradeIndex === tradeIndex) {
           return { ...trade, ...updates };
         }
@@ -379,13 +417,11 @@ const MainPage: React.FC = () => {
       // 업데이트된 tradehistory 배열을 DB에 저장합니다.
       (async () => {
         try {
-          await supabase
-            .from("dynamicwave")
-            .upsert({ 
-              user_id: localSession?.user?.id, 
-              settings: settings,
-              tradehistory: updatedTrades
-            });
+          await supabase.from("dynamicwave").upsert({
+            user_id: localSession?.user?.id,
+            settings: settings,
+            tradehistory: updatedTrades,
+          });
           console.log("매도 정보 업데이트 성공", updates);
         } catch (error) {
           console.error("매도 정보 업데이트 실패:", error);
@@ -445,7 +481,8 @@ const MainPage: React.FC = () => {
           <div className="bg-gray-800 p-6 rounded-lg shadow-lg w-96">
             <h2 className="text-xl text-white mb-4">확인</h2>
             <p className="text-white mb-6">
-              기존 트레이드 내역, 시드 업데이트 기록, 출금액 설정 등 모든 데이터가 초기화됩니다. 계속하시겠습니까?
+              기존 트레이드 내역, 시드 업데이트 기록, 출금액 설정 등 모든
+              데이터가 초기화됩니다. 계속하시겠습니까?
             </p>
             <div className="flex justify-end space-x-4">
               <button
@@ -497,13 +534,13 @@ const MainPage: React.FC = () => {
             settings={settings}
             onChange={handleSettingsChange}
           />
-          {saveStatus === 'loading' && (
+          {saveStatus === "loading" && (
             <p className="text-center mt-2">저장 중...</p>
           )}
-          {saveStatus === 'success' && (
+          {saveStatus === "success" && (
             <p className="text-center mt-2">저장 완료!</p>
           )}
-          {saveStatus === 'error' && (
+          {saveStatus === "error" && (
             <p className="text-center mt-2">저장 실패. 다시 시도해주세요.</p>
           )}
           <button
@@ -571,15 +608,15 @@ const MainPage: React.FC = () => {
         ) : (
           <div className="w-screen h-screen bg-gray-900 text-white flex justify-center items-center">
             <p>로그인이 필요합니다</p>
-          <button
-            onClick={() =>
-              supabase.auth.signInWithOAuth({
-                provider: "kakao",
-                options: { redirectTo: "https://dynamicwave.netlify.app" },
-              })
-            }
-          >
-            카카오로 로그인
+            <button
+              onClick={() =>
+                supabase.auth.signInWithOAuth({
+                  provider: "kakao",
+                  options: { redirectTo: "https://dynamicwave.netlify.app" },
+                })
+              }
+            >
+              카카오로 로그인
             </button>
           </div>
         )}
