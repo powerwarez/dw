@@ -92,6 +92,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
   const [modalWithdrawalAmount, setModalWithdrawalAmount] = useState<number>(0);
   const [latestUpdatedSeedDate, setLatestUpdatedSeedDate] = useState<string>("");
   const [manualFixInfo, setManualFixInfo] = useState<{ [key: string]: number }>({});
+  const [seedUpdateDates, setSeedUpdateDates] = useState<string[]>([]);
 
   const dailyProfitMap: { [date: string]: { totalProfit: number; tradeIndex: number } } = {};
 
@@ -129,6 +130,21 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
       if (initialTrades && initialTrades.length > 0) {
         console.log("DB에 존재하는 Trade 내역을 사용합니다.");
         newTrades = [...initialTrades];
+        
+        // 기존 거래 내역이 있을 때 blockCount 계산
+        blockCount = newTrades.length % 10;
+        console.log("기존 거래 내역 기준 blockCount:", blockCount);
+        
+        // 마지막 시드 업데이트 이후의 거래 내역을 기준으로 currentSeed 설정
+        if (latestUpdatedSeedDate) {
+          const latestSeedUpdateIndex = newTrades.findIndex(trade => trade.buyDate === latestUpdatedSeedDate);
+          if (latestSeedUpdateIndex !== -1 && latestSeedUpdateIndex < newTrades.length - 1) {
+            // 마지막 시드 업데이트 이후의 거래만 고려하여 blockCount 재계산
+            blockCount = (newTrades.length - (latestSeedUpdateIndex + 1)) % 10;
+            console.log("마지막 시드 업데이트 이후 blockCount:", blockCount);
+          }
+        }
+        
         setTrades(initialTrades);
 
         const yesterdayDate = new Date();
@@ -184,6 +200,13 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
             });
             tradeIndex++;
             blockCount++;
+            
+            // 블록 카운트가 10이 되면 시드 업데이트
+            if (blockCount === 10) {
+              console.log("어제 거래 추가 후 blockCount가 10이 되어 시드 업데이트 실행");
+              currentSeed = await updateSeedForTrades(newTrades, currentSeed, newYesterdayTrade.buyDate);
+              blockCount = 0;
+            }
           } else {
             console.warn("어제 종가가 존재하지 않습니다.");
           }
@@ -270,7 +293,9 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         tradeIndex++;
         blockCount++;
 
+        console.log(`거래 추가 후 blockCount: ${blockCount}, 날짜: ${buyDateStr}`);
         if (blockCount === 10) {
+          console.log(`10거래일 완료, 시드 업데이트 실행: ${buyDateStr}`);
           currentSeed = await updateSeedForTrades(newTrades, currentSeed, trade.buyDate);
           blockCount = 0;
         }
@@ -327,30 +352,88 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
 
   const checkAndUpdateSeed = async (calculatedSeed: number, tradesToUpdate: Trade[], tradeDate: string) => {
     const recordDate = tradeDate;
-    const { data: dbData, error } = await supabase
-      .from("dynamicwave")
-      .select("updatedSeed, settings")
-      .eq("user_id", userId)
-      .single();
-    if (error) {
-      console.error("Seed update fetch error:", error);
-      return;
-    }
+    console.log(`시드 업데이트 시작 - 날짜: ${recordDate}, 계산된 시드: ${calculatedSeed}`);
+    
+    try {
+      const { data: dbData, error } = await supabase
+        .from("dynamicwave")
+        .select("updatedSeed, settings")
+        .eq("user_id", userId)
+        .single();
+        
+      if (error) {
+        console.error("Seed update fetch error:", error);
+        return calculatedSeed;
+      }
 
-    const updatedSeedRecords: { date: string; value: number }[] = Array.isArray(dbData?.updatedSeed) ? dbData.updatedSeed : [];
-    if (!updatedSeedRecords.some((record) => record.date === recordDate)) {
-      updatedSeedRecords.push({ date: recordDate, value: calculatedSeed });
-      const updatedSettings: Settings = { ...dbData?.settings, currentInvestment: calculatedSeed };
-      await supabase.from("dynamicwave").upsert({
+      const updatedSeedRecords: { date: string; value: number }[] = Array.isArray(dbData?.updatedSeed) ? dbData.updatedSeed : [];
+      
+      // 이미 같은 날짜에 업데이트된 기록이 있는지 확인
+      const existingRecordIndex = updatedSeedRecords.findIndex(record => record.date === recordDate);
+      
+      if (existingRecordIndex === -1) {
+        // 새 기록 추가
+        updatedSeedRecords.push({ date: recordDate, value: calculatedSeed });
+        console.log(`새 시드 기록 추가: ${recordDate}, ${calculatedSeed}`);
+      } else {
+        // 기존 기록 업데이트
+        updatedSeedRecords[existingRecordIndex].value = calculatedSeed;
+        console.log(`기존 시드 기록 업데이트: ${recordDate}, ${calculatedSeed}`);
+      }
+      
+      // 시드 기록을 날짜순으로 정렬
+      updatedSeedRecords.sort((a, b) => a.date.localeCompare(b.date));
+      
+      // 설정에 현재 투자금 업데이트
+      const updatedSettings: Settings = { 
+        ...dbData?.settings, 
+        currentInvestment: calculatedSeed 
+      };
+      
+      // DB 업데이트
+      const { error: upsertError } = await supabase.from("dynamicwave").upsert({
         user_id: userId,
         settings: updatedSettings,
         tradehistory: tradesToUpdate,
         updatedSeed: updatedSeedRecords,
         manualFixInfo,
       });
-      console.log("Seed updated in DB:", { date: recordDate, value: calculatedSeed });
+      
+      if (upsertError) {
+        console.error("시드 업데이트 저장 오류:", upsertError);
+        return calculatedSeed;
+      }
+      
+      console.log(`시드 업데이트 완료 - 날짜: ${recordDate}, 값: ${calculatedSeed}`);
+      
+      // 상태 업데이트
+      setLatestUpdatedSeedDate(recordDate);
+      
+      // seedUpdateDates 상태 업데이트
+      setSeedUpdateDates(prev => {
+        const newDates = [...prev];
+        if (!newDates.includes(recordDate)) {
+          newDates.push(recordDate);
+          // 날짜순 정렬
+          newDates.sort((a, b) => a.localeCompare(b));
+        }
+        return newDates;
+      });
+      
       onSeedUpdate?.(calculatedSeed);
+      
+      return calculatedSeed;
+    } catch (error) {
+      console.error("시드 업데이트 중 예외 발생:", error);
+      return calculatedSeed;
     }
+  };
+
+  const updateSeedForTrades = async (trades: Trade[], currentSeed: number, tradeDate: string): Promise<number> => {
+    console.log(`updateSeedForTrades 호출 - 날짜: ${tradeDate}, 현재 시드: ${currentSeed}`);
+    const newSeed = computeUpdatedSeed(trades, currentSeed);
+    const updatedSeed = await checkAndUpdateSeed(newSeed, trades, tradeDate);
+    return updatedSeed;
   };
 
   const adjustSellDate = (sellDateStr: string): string => {
@@ -396,26 +479,42 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     setIsModalOpen(false);
   };
 
-  const updateSeedForTrades = async (trades: Trade[], currentSeed: number, tradeDate: string): Promise<number> => {
-    const newSeed = computeUpdatedSeed(trades, currentSeed);
-    await checkAndUpdateSeed(newSeed, trades, tradeDate);
-    return newSeed;
-  };
-
   useEffect(() => {
-    async function fetchLatestUpdatedSeedDate() {
+    async function fetchSeedUpdateDates() {
       if (!userId) return;
-      const { data, error } = await supabase.from("dynamicwave").select("updatedSeed").eq("user_id", userId).maybeSingle();
-      if (error) {
-        console.error("Error fetching updatedSeed:", error);
-        return;
-      }
-      if (data?.updatedSeed && Array.isArray(data.updatedSeed) && data.updatedSeed.length > 0) {
-        const sorted = data.updatedSeed.sort((a: { date: string; value: number }, b: { date: string; value: number }) => a.date.localeCompare(b.date));
-        setLatestUpdatedSeedDate(sorted[sorted.length - 1].date);
+      
+      try {
+        const { data, error } = await supabase.from("dynamicwave").select("updatedSeed").eq("user_id", userId).maybeSingle();
+        
+        if (error) {
+          console.error("Error fetching updatedSeed:", error);
+          return;
+        }
+        
+        if (data?.updatedSeed && Array.isArray(data.updatedSeed) && data.updatedSeed.length > 0) {
+          // 날짜순으로 정렬
+          const sorted = data.updatedSeed.sort((a: { date: string; value: number }, b: { date: string; value: number }) => 
+            a.date.localeCompare(b.date)
+          );
+          
+          // 모든 시드 업데이트 날짜를 배열로 저장
+          const updateDates = sorted.map((item: { date: string; value: number }) => item.date);
+          setSeedUpdateDates(updateDates);
+          
+          // 가장 최근 시드 업데이트 날짜 설정
+          const latestDate = sorted[sorted.length - 1].date;
+          console.log(`최신 시드 업데이트 날짜: ${latestDate}, 값: ${sorted[sorted.length - 1].value}`);
+          setLatestUpdatedSeedDate(latestDate);
+        } else {
+          console.log("시드 업데이트 기록이 없습니다.");
+          setSeedUpdateDates([]);
+        }
+      } catch (error) {
+        console.error("시드 업데이트 날짜 조회 중 예외 발생:", error);
       }
     }
-    fetchLatestUpdatedSeedDate();
+    
+    fetchSeedUpdateDates();
   }, [userId]);
 
   useEffect(() => {
@@ -552,19 +651,19 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                   <td className="text-center">
                     {trade.buyDate ? (
                       latestUpdatedSeedDate && new Date(trade.buyDate) > new Date(latestUpdatedSeedDate) ? (
+                        // 1. 마지막 시드 업데이트 이후의 거래일: 빨간색 + 클릭 가능 (수정 가능)
                         <span 
                           className="cursor-pointer text-red-500" 
                           onClick={() => openWithdrawalModal(index)}
                         >
                           {trade.manualFixedWithdrawal !== undefined ? trade.manualFixedWithdrawal : "0(예정)"}
                         </span>
+                      ) : seedUpdateDates.includes(trade.buyDate) ? (
+                        // 2. 시드 업데이트가 발생한 날짜: 빨간색 (수정 불가)
+                        <span className="text-red-500">{trade.actualwithdrawalAmount ?? 0}</span>
                       ) : (
-                        // 마지막 시드 업데이트 이전이거나 같은 날짜인 경우, 클릭 불가
-                        (index + 1) % 10 === 0 ? (
-                          <span className="text-red-500">{trade.actualwithdrawalAmount ?? 0}</span>
-                        ) : (
-                          <span>{trade.actualwithdrawalAmount ?? 0}</span>
-                        )
+                        // 3. 그 외 모든 날짜: 흰색 (수정 불가)
+                        <span>{trade.actualwithdrawalAmount ?? 0}</span>
                       )
                     ) : (
                       <span>-</span>
