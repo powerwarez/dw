@@ -85,27 +85,44 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalTradeIndex, setModalTradeIndex] = useState<number | null>(null);
   const [modalSellDate, setModalSellDate] = useState<string>("");
-  const [modalSellPrice, setModalSellPrice] = useState<number | undefined>(undefined);
-  const [modalSellQuantity, setModalSellQuantity] = useState<number | undefined>(undefined);
+  const [modalSellPrice, setModalSellPrice] = useState<number | undefined>(
+    undefined
+  );
+  const [modalSellQuantity, setModalSellQuantity] = useState<
+    number | undefined
+  >(undefined);
   const [isWithdrawalModalOpen, setIsWithdrawalModalOpen] = useState(false);
-  const [modalWithdrawalTradeIndex, setModalWithdrawalTradeIndex] = useState<number | null>(null);
+  const [modalWithdrawalTradeIndex, setModalWithdrawalTradeIndex] = useState<
+    number | null
+  >(null);
   const [modalWithdrawalAmount, setModalWithdrawalAmount] = useState<number>(0);
-  const [latestUpdatedSeedDate, setLatestUpdatedSeedDate] = useState<string>("");
-  const [manualFixInfo, setManualFixInfo] = useState<{ [key: string]: number }>({});
+  const [latestUpdatedSeedDate, setLatestUpdatedSeedDate] =
+    useState<string>("");
+  const [manualFixInfo, setManualFixInfo] = useState<{ [key: string]: number }>(
+    {}
+  );
   const [seedUpdateDates, setSeedUpdateDates] = useState<string[]>([]);
 
-  const dailyProfitMap: { [date: string]: { totalProfit: number; tradeIndex: number } } = {};
+  const dailyProfitMap: {
+    [date: string]: { totalProfit: number; tradeIndex: number };
+  } = {};
 
-  async function waitForModes(initModes: ModeItem[] | null): Promise<ModeItem[] | null> {
+  async function waitForModes(
+    initModes: ModeItem[] | null
+  ): Promise<ModeItem[] | null> {
     if (cachedModes && cachedModes.length > 0) return cachedModes;
     setIsModeLoading(true);
-    while (!initModes || initModes.length === 0) await new Promise((resolve) => setTimeout(resolve, 1000));
+    while (!initModes || initModes.length === 0)
+      await new Promise((resolve) => setTimeout(resolve, 1000));
     setIsModeLoading(false);
     setCachedModes(initModes);
     return initModes;
   }
 
-  function findModeForDateNoWait(targetDateStr: string, sortedModes: ModeItem[]): "safe" | "aggressive" {
+  function findModeForDateNoWait(
+    targetDateStr: string,
+    sortedModes: ModeItem[]
+  ): "safe" | "aggressive" {
     let decidedMode: "safe" | "aggressive" = "safe";
     for (let i = 0; i < sortedModes.length; i++) {
       const modeStartTime = new Date(sortedModes[i].date).getTime();
@@ -121,37 +138,49 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     const fetchTrades = async () => {
       let newTrades: Trade[] = [];
       const finalModes = await waitForModes(modes || null);
-      const sortedModes = finalModes ? [...finalModes].sort((a, b) => a.date.localeCompare(b.date)) : [];
+      const sortedModes = finalModes
+        ? [...finalModes].sort((a, b) => a.date.localeCompare(b.date))
+        : [];
       const startDateObj = new Date(settings.startDate);
       let currentSeed = settings.currentInvestment;
-      let tradeIndex = (initialTrades.length > 0 ? initialTrades[initialTrades.length - 1]?.tradeIndex || 0 : 0) + 1;
+      let tradeIndex =
+        (initialTrades.length > 0
+          ? initialTrades[initialTrades.length - 1]?.tradeIndex || 0
+          : 0) + 1;
       let blockCount = 0;
 
       if (initialTrades && initialTrades.length > 0) {
         console.log("DB에 존재하는 Trade 내역을 사용합니다.");
         newTrades = [...initialTrades];
-        
+
         // 기존 거래 내역이 있을 때 blockCount 계산
         blockCount = newTrades.length % 10;
         console.log("기존 거래 내역 기준 blockCount:", blockCount);
-        
+
         // 마지막 시드 업데이트 이후의 거래 내역을 기준으로 currentSeed 설정
         if (latestUpdatedSeedDate) {
-          const latestSeedUpdateIndex = newTrades.findIndex(trade => trade.buyDate === latestUpdatedSeedDate);
-          if (latestSeedUpdateIndex !== -1 && latestSeedUpdateIndex < newTrades.length - 1) {
+          const latestSeedUpdateIndex = newTrades.findIndex(
+            (trade) => trade.buyDate === latestUpdatedSeedDate
+          );
+          if (
+            latestSeedUpdateIndex !== -1 &&
+            latestSeedUpdateIndex < newTrades.length - 1
+          ) {
             // 마지막 시드 업데이트 이후의 거래만 고려하여 blockCount 재계산
             blockCount = (newTrades.length - (latestSeedUpdateIndex + 1)) % 10;
             console.log("마지막 시드 업데이트 이후 blockCount:", blockCount);
           }
         }
-        
+
         setTrades(initialTrades);
 
         const yesterdayDate = new Date();
         yesterdayDate.setDate(yesterdayDate.getDate() - 1);
         const yesterdayStr = yesterdayDate.toISOString().split("T")[0];
         const existingYesterdayTrade = initialTrades.find(
-          (trade) => new Date(trade.buyDate).toISOString().split("T")[0] === yesterdayStr && trade.targetSellPrice > 0
+          (trade) =>
+            new Date(trade.buyDate).toISOString().split("T")[0] ===
+              yesterdayStr && trade.targetSellPrice > 0
         );
 
         if (existingYesterdayTrade) {
@@ -159,19 +188,36 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
           onUpdateYesterdaySell?.(existingYesterdayTrade);
         } else if (closingPrices.length > 0) {
           const yesterdayClosing = closingPrices.find(
-            (priceEntry) => new Date(priceEntry.date).toISOString().split("T")[0] === yesterdayStr
+            (priceEntry) =>
+              new Date(priceEntry.date).toISOString().split("T")[0] ===
+              yesterdayStr
           );
           if (yesterdayClosing) {
             const currentPrice = parseFloat(yesterdayClosing.price);
-            const mode = sortedModes.length > 0 ? findModeForDateNoWait(yesterdayStr, sortedModes) : "safe";
-            const buyPercent = mode === "safe" ? settings.safeBuyPercent : settings.aggressiveBuyPercent;
-            const sellPercent = mode === "safe" ? settings.safeSellPercent : settings.aggressiveSellPercent;
-            const daysUntilSell = mode === "safe" ? settings.safeMaxDays : settings.aggressiveMaxDays;
+            const mode =
+              sortedModes.length > 0
+                ? findModeForDateNoWait(yesterdayStr, sortedModes)
+                : "safe";
+            const buyPercent =
+              mode === "safe"
+                ? settings.safeBuyPercent
+                : settings.aggressiveBuyPercent;
+            const sellPercent =
+              mode === "safe"
+                ? settings.safeSellPercent
+                : settings.aggressiveSellPercent;
+            const daysUntilSell =
+              mode === "safe"
+                ? settings.safeMaxDays
+                : settings.aggressiveMaxDays;
             const targetBuyPrice = currentPrice * (1 + buyPercent / 100);
             const actualBuyPrice = currentPrice;
-            const quantity = Math.floor(currentSeed / settings.seedDivision / targetBuyPrice);
+            const quantity = Math.floor(
+              currentSeed / settings.seedDivision / targetBuyPrice
+            );
             const targetSellPrice = actualBuyPrice * (1 + sellPercent / 100);
-            const withdrawalFromManualFix = manualFixInfo[yesterdayStr] ?? settings.withdrawalAmount;
+            const withdrawalFromManualFix =
+              manualFixInfo[yesterdayStr] ?? settings.withdrawalAmount;
 
             const newYesterdayTrade: Trade = {
               tradeIndex,
@@ -200,11 +246,17 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
             });
             tradeIndex++;
             blockCount++;
-            
+
             // 블록 카운트가 10이 되면 시드 업데이트
             if (blockCount === 10) {
-              console.log("어제 거래 추가 후 blockCount가 10이 되어 시드 업데이트 실행");
-              currentSeed = await updateSeedForTrades(newTrades, currentSeed, newYesterdayTrade.buyDate);
+              console.log(
+                "어제 거래 추가 후 blockCount가 10이 되어 시드 업데이트 실행"
+              );
+              currentSeed = await updateSeedForTrades(
+                newTrades,
+                currentSeed,
+                newYesterdayTrade.buyDate
+              );
               blockCount = 0;
             }
           } else {
@@ -222,17 +274,34 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         const existingTrade = newTrades.find((t) => t.buyDate === buyDateStr);
         if (existingTrade) continue;
 
-        const mode = sortedModes.length > 0 ? findModeForDateNoWait(buyDateStr, sortedModes) : "safe";
+        const mode =
+          sortedModes.length > 0
+            ? findModeForDateNoWait(buyDateStr, sortedModes)
+            : "safe";
         const currentPrice = parseFloat(priceEntry.price);
-        const previousClosePrice = index > 0 ? parseFloat(closingPrices[index - 1].price) : currentPrice;
-        const buyPercent = mode === "safe" ? settings.safeBuyPercent : settings.aggressiveBuyPercent;
-        const sellPercent = mode === "safe" ? settings.safeSellPercent : settings.aggressiveSellPercent;
+        const previousClosePrice =
+          index > 0 ? parseFloat(closingPrices[index - 1].price) : currentPrice;
+        const buyPercent =
+          mode === "safe"
+            ? settings.safeBuyPercent
+            : settings.aggressiveBuyPercent;
+        const sellPercent =
+          mode === "safe"
+            ? settings.safeSellPercent
+            : settings.aggressiveSellPercent;
         const targetBuyPrice = previousClosePrice * (1 + buyPercent / 100);
-        const actualBuyPrice = currentPrice <= targetBuyPrice ? currentPrice : 0;
-        const quantity = actualBuyPrice ? Math.floor(currentSeed / (settings.seedDivision || 1) / targetBuyPrice) : 0;
+        const actualBuyPrice =
+          currentPrice <= targetBuyPrice ? currentPrice : 0;
+        const quantity = actualBuyPrice
+          ? Math.floor(
+              currentSeed / (settings.seedDivision || 1) / targetBuyPrice
+            )
+          : 0;
         const targetSellPrice = actualBuyPrice * (1 + sellPercent / 100);
-        const daysUntilSell = mode === "safe" ? settings.safeMaxDays : settings.aggressiveMaxDays;
-        const withdrawalFromManualFix = manualFixInfo[buyDateStr] ?? settings.withdrawalAmount;
+        const daysUntilSell =
+          mode === "safe" ? settings.safeMaxDays : settings.aggressiveMaxDays;
+        const withdrawalFromManualFix =
+          manualFixInfo[buyDateStr] ?? settings.withdrawalAmount;
 
         const trade: Trade = {
           tradeIndex,
@@ -255,9 +324,13 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
             trade.sellDate = closingPrices[i].date;
             trade.actualSellPrice = futurePrice;
             trade.sellQuantity = trade.quantity;
-            trade.profit = (futurePrice - trade.actualBuyPrice) * trade.quantity;
+            trade.profit =
+              (futurePrice - trade.actualBuyPrice) * trade.quantity;
             trade.sellDate = adjustSellDate(trade.sellDate!);
-            dailyProfitMap[trade.sellDate] = dailyProfitMap[trade.sellDate] || { totalProfit: 0, tradeIndex: 0 };
+            dailyProfitMap[trade.sellDate] = dailyProfitMap[trade.sellDate] || {
+              totalProfit: 0,
+              tradeIndex: 0,
+            };
             dailyProfitMap[trade.sellDate].totalProfit += trade.profit || 0;
             dailyProfitMap[trade.sellDate].tradeIndex = trade.tradeIndex;
             break;
@@ -268,22 +341,36 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         for (let i = 0; i < newTrades.length; i++) {
           if (!newTrades[i].sellDate) {
             const diffDays = Math.floor(
-              (new Date(buyDateStr).getTime() - new Date(newTrades[i].buyDate).getTime()) / (1000 * 60 * 60 * 24)
+              (new Date(buyDateStr).getTime() -
+                new Date(newTrades[i].buyDate).getTime()) /
+                (1000 * 60 * 60 * 24)
             );
-            const maxDays = newTrades[i].mode === "safe" ? settings.safeMaxDays : settings.aggressiveMaxDays;
+            const maxDays =
+              newTrades[i].mode === "safe"
+                ? settings.safeMaxDays
+                : settings.aggressiveMaxDays;
             newTrades[i].daysUntilSell = maxDays - diffDays;
             if (newTrades[i].daysUntilSell < 0) {
               newTrades[i].daysUntilSell = -1;
-              const buyIndex = closingPrices.findIndex((p) => p.date === newTrades[i].buyDate);
+              const buyIndex = closingPrices.findIndex(
+                (p) => p.date === newTrades[i].buyDate
+              );
               const expirationIndex = buyIndex + maxDays;
               if (expirationIndex < closingPrices.length) {
-                const autoSellPrice = parseFloat(closingPrices[expirationIndex].price);
+                const autoSellPrice = parseFloat(
+                  closingPrices[expirationIndex].price
+                );
                 newTrades[i].sellDate = closingPrices[expirationIndex].date;
                 newTrades[i].actualSellPrice = autoSellPrice;
                 newTrades[i].sellQuantity = newTrades[i].quantity;
-                newTrades[i].profit = (autoSellPrice - newTrades[i].actualBuyPrice) * newTrades[i].quantity;
-                dailyProfitMap[newTrades[i].sellDate!] = dailyProfitMap[newTrades[i].sellDate!] || { totalProfit: 0, tradeIndex: 0 };
-                dailyProfitMap[newTrades[i].sellDate!].totalProfit += newTrades[i].profit || 0;
+                newTrades[i].profit =
+                  (autoSellPrice - newTrades[i].actualBuyPrice) *
+                  newTrades[i].quantity;
+                dailyProfitMap[newTrades[i].sellDate!] = dailyProfitMap[
+                  newTrades[i].sellDate!
+                ] || { totalProfit: 0, tradeIndex: 0 };
+                dailyProfitMap[newTrades[i].sellDate!].totalProfit +=
+                  newTrades[i].profit || 0;
               }
             }
           }
@@ -293,10 +380,16 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         tradeIndex++;
         blockCount++;
 
-        console.log(`거래 추가 후 blockCount: ${blockCount}, 날짜: ${buyDateStr}`);
+        console.log(
+          `거래 추가 후 blockCount: ${blockCount}, 날짜: ${buyDateStr}`
+        );
         if (blockCount === 10) {
           console.log(`10거래일 완료, 시드 업데이트 실행: ${buyDateStr}`);
-          currentSeed = await updateSeedForTrades(newTrades, currentSeed, trade.buyDate);
+          currentSeed = await updateSeedForTrades(
+            newTrades,
+            currentSeed,
+            trade.buyDate
+          );
           blockCount = 0;
         }
       }
@@ -307,11 +400,16 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
       }
 
       const todayStr = new Date().toISOString().split("T")[0];
-      const lastTradeSale = newTrades.filter((t) => t.buyDate === todayStr && t.targetSellPrice > 0).pop() || newTrades[newTrades.length - 1];
+      const lastTradeSale =
+        newTrades
+          .filter((t) => t.buyDate === todayStr && t.targetSellPrice > 0)
+          .pop() || newTrades[newTrades.length - 1];
       if (lastTradeSale) onUpdateYesterdaySell(lastTradeSale);
 
       const newZeroDayTrades = newTrades.filter(
-        (trade) => trade.daysUntilSell === 0 && trade.quantity - (trade.sellQuantity || 0) !== 0
+        (trade) =>
+          trade.daysUntilSell === 0 &&
+          trade.quantity - (trade.sellQuantity || 0) !== 0
       );
       onZeroDayTradesUpdate?.(newZeroDayTrades);
     };
@@ -320,57 +418,76 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     // eslint-disable-next-line
   }, [closingPrices]);
 
-  const computeUpdatedSeed = (trades: Trade[], previousSeed: number): number => {
+  const computeUpdatedSeed = (
+    trades: Trade[],
+    previousSeed: number
+  ): number => {
     // 최근 10거래일만 계산에 포함 (이전 거래일의 출금액은 계산에 포함하지 않음)
     const blockTrades = trades.slice(-10);
-    
+
     // 최근 10거래일의 일일 수익 합계
-    const totalDailyProfit = blockTrades.reduce((sum, trade) => sum + (trade.dailyProfit || 0), 0);
-    
+    const totalDailyProfit = blockTrades.reduce(
+      (sum, trade) => sum + (trade.dailyProfit || 0),
+      0
+    );
+
     // 최근 10거래일의 출금액 합계
-    const withdrawal = blockTrades.reduce((sum, trade) => sum + (trade.actualwithdrawalAmount || 0), 0);
-    
+    const withdrawal = blockTrades.reduce(
+      (sum, trade) => sum + (trade.actualwithdrawalAmount || 0),
+      0
+    );
+
     // 수익/손실에 따른 복리 계산
-    const compoundedProfit = totalDailyProfit >= 0
-      ? totalDailyProfit * (settings.profitCompounding / 100)
-      : totalDailyProfit * (settings.lossCompounding / 100);
-    
+    const compoundedProfit =
+      totalDailyProfit >= 0
+        ? totalDailyProfit * (settings.profitCompounding / 100)
+        : totalDailyProfit * (settings.lossCompounding / 100);
+
     // 새로운 시드 = 이전 시드 + 복리 수익 - 출금액
     const newSeed = previousSeed + compoundedProfit - withdrawal;
-    
-    console.log("computeUpdatedSeed:", { 
-      previousSeed, 
-      totalDailyProfit, 
-      compoundedProfit, 
-      withdrawal, 
+
+    console.log("computeUpdatedSeed:", {
+      previousSeed,
+      totalDailyProfit,
+      compoundedProfit,
+      withdrawal,
       newSeed,
-      blockTradesDates: blockTrades.map(t => t.buyDate) // 디버깅용: 계산에 포함된 거래일 확인
+      blockTradesDates: blockTrades.map((t) => t.buyDate), // 디버깅용: 계산에 포함된 거래일 확인
     });
-    
+
     return newSeed;
   };
 
-  const checkAndUpdateSeed = async (calculatedSeed: number, tradesToUpdate: Trade[], tradeDate: string) => {
+  const checkAndUpdateSeed = async (
+    calculatedSeed: number,
+    tradesToUpdate: Trade[],
+    tradeDate: string
+  ) => {
     const recordDate = tradeDate;
-    console.log(`시드 업데이트 시작 - 날짜: ${recordDate}, 계산된 시드: ${calculatedSeed}`);
-    
+    console.log(
+      `시드 업데이트 시작 - 날짜: ${recordDate}, 계산된 시드: ${calculatedSeed}`
+    );
+
     try {
       const { data: dbData, error } = await supabase
         .from("dynamicwave")
         .select("updatedSeed, settings")
         .eq("user_id", userId)
         .single();
-        
+
       if (error) {
         console.error("Seed update fetch error:", error);
         return calculatedSeed;
       }
 
-      const updatedSeedRecords: { date: string; value: number }[] = Array.isArray(dbData?.updatedSeed) ? dbData.updatedSeed : [];
-      
+      const updatedSeedRecords: { date: string; value: number }[] =
+        Array.isArray(dbData?.updatedSeed) ? dbData.updatedSeed : [];
+
       // 이미 같은 날짜에 업데이트된 기록이 있는지 확인
-      const existingRecordIndex = updatedSeedRecords.findIndex(record => record.date === recordDate);
-      
+      const existingRecordIndex = updatedSeedRecords.findIndex(
+        (record) => record.date === recordDate
+      );
+
       if (existingRecordIndex === -1) {
         // 새 기록 추가
         updatedSeedRecords.push({ date: recordDate, value: calculatedSeed });
@@ -378,18 +495,20 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
       } else {
         // 기존 기록 업데이트
         updatedSeedRecords[existingRecordIndex].value = calculatedSeed;
-        console.log(`기존 시드 기록 업데이트: ${recordDate}, ${calculatedSeed}`);
+        console.log(
+          `기존 시드 기록 업데이트: ${recordDate}, ${calculatedSeed}`
+        );
       }
-      
+
       // 시드 기록을 날짜순으로 정렬
       updatedSeedRecords.sort((a, b) => a.date.localeCompare(b.date));
-      
+
       // 설정에 현재 투자금 업데이트
-      const updatedSettings: Settings = { 
-        ...dbData?.settings, 
-        currentInvestment: calculatedSeed 
+      const updatedSettings: Settings = {
+        ...dbData?.settings,
+        currentInvestment: calculatedSeed,
       };
-      
+
       // DB 업데이트
       const { error: upsertError } = await supabase.from("dynamicwave").upsert({
         user_id: userId,
@@ -398,19 +517,21 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         updatedSeed: updatedSeedRecords,
         manualFixInfo,
       });
-      
+
       if (upsertError) {
         console.error("시드 업데이트 저장 오류:", upsertError);
         return calculatedSeed;
       }
-      
-      console.log(`시드 업데이트 완료 - 날짜: ${recordDate}, 값: ${calculatedSeed}`);
-      
+
+      console.log(
+        `시드 업데이트 완료 - 날짜: ${recordDate}, 값: ${calculatedSeed}`
+      );
+
       // 상태 업데이트
       setLatestUpdatedSeedDate(recordDate);
-      
+
       // seedUpdateDates 상태 업데이트
-      setSeedUpdateDates(prev => {
+      setSeedUpdateDates((prev) => {
         const newDates = [...prev];
         if (!newDates.includes(recordDate)) {
           newDates.push(recordDate);
@@ -419,9 +540,12 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         }
         return newDates;
       });
-      
-      onSeedUpdate?.(calculatedSeed);
-      
+
+      // onSeedUpdate 콜백 호출
+      if (onSeedUpdate) {
+        onSeedUpdate(calculatedSeed);
+      }
+
       return calculatedSeed;
     } catch (error) {
       console.error("시드 업데이트 중 예외 발생:", error);
@@ -429,8 +553,14 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     }
   };
 
-  const updateSeedForTrades = async (trades: Trade[], currentSeed: number, tradeDate: string): Promise<number> => {
-    console.log(`updateSeedForTrades 호출 - 날짜: ${tradeDate}, 현재 시드: ${currentSeed}`);
+  const updateSeedForTrades = async (
+    trades: Trade[],
+    currentSeed: number,
+    tradeDate: string
+  ): Promise<number> => {
+    console.log(
+      `updateSeedForTrades 호출 - 날짜: ${tradeDate}, 현재 시드: ${currentSeed}`
+    );
     const newSeed = computeUpdatedSeed(trades, currentSeed);
     const updatedSeed = await checkAndUpdateSeed(newSeed, trades, tradeDate);
     return updatedSeed;
@@ -456,14 +586,23 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
   const handleModalConfirm = async () => {
     if (modalTradeIndex === null) return;
     const index = modalTradeIndex;
-    const updatedTrade = { ...trades[index], sellDate: modalSellDate, actualSellPrice: modalSellPrice, sellQuantity: modalSellQuantity };
+    const updatedTrade = {
+      ...trades[index],
+      sellDate: modalSellDate,
+      actualSellPrice: modalSellPrice,
+      sellQuantity: modalSellQuantity,
+    };
     const newTrades = [...trades];
 
     if (modalSellPrice !== undefined && modalSellQuantity !== undefined) {
-      updatedTrade.profit = (modalSellPrice - updatedTrade.actualBuyPrice) * modalSellQuantity;
-      const dailyTradeIndex = newTrades.findIndex((t) => t.buyDate === modalSellDate);
+      updatedTrade.profit =
+        (modalSellPrice - updatedTrade.actualBuyPrice) * modalSellQuantity;
+      const dailyTradeIndex = newTrades.findIndex(
+        (t) => t.buyDate === modalSellDate
+      );
       if (dailyTradeIndex !== -1) {
-        newTrades[dailyTradeIndex].dailyProfit = (newTrades[dailyTradeIndex].dailyProfit || 0) + updatedTrade.profit;
+        newTrades[dailyTradeIndex].dailyProfit =
+          (newTrades[dailyTradeIndex].dailyProfit || 0) + updatedTrade.profit;
       } else {
         updatedTrade.dailyProfit = updatedTrade.profit;
       }
@@ -482,28 +621,45 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
   useEffect(() => {
     async function fetchSeedUpdateDates() {
       if (!userId) return;
-      
+
       try {
-        const { data, error } = await supabase.from("dynamicwave").select("updatedSeed").eq("user_id", userId).maybeSingle();
-        
+        const { data, error } = await supabase
+          .from("dynamicwave")
+          .select("updatedSeed")
+          .eq("user_id", userId)
+          .maybeSingle();
+
         if (error) {
           console.error("Error fetching updatedSeed:", error);
           return;
         }
-        
-        if (data?.updatedSeed && Array.isArray(data.updatedSeed) && data.updatedSeed.length > 0) {
+
+        if (
+          data?.updatedSeed &&
+          Array.isArray(data.updatedSeed) &&
+          data.updatedSeed.length > 0
+        ) {
           // 날짜순으로 정렬
-          const sorted = data.updatedSeed.sort((a: { date: string; value: number }, b: { date: string; value: number }) => 
-            a.date.localeCompare(b.date)
+          const sorted = data.updatedSeed.sort(
+            (
+              a: { date: string; value: number },
+              b: { date: string; value: number }
+            ) => a.date.localeCompare(b.date)
           );
-          
+
           // 모든 시드 업데이트 날짜를 배열로 저장
-          const updateDates = sorted.map((item: { date: string; value: number }) => item.date);
+          const updateDates = sorted.map(
+            (item: { date: string; value: number }) => item.date
+          );
           setSeedUpdateDates(updateDates);
-          
+
           // 가장 최근 시드 업데이트 날짜 설정
           const latestDate = sorted[sorted.length - 1].date;
-          console.log(`최신 시드 업데이트 날짜: ${latestDate}, 값: ${sorted[sorted.length - 1].value}`);
+          console.log(
+            `최신 시드 업데이트 날짜: ${latestDate}, 값: ${
+              sorted[sorted.length - 1].value
+            }`
+          );
           setLatestUpdatedSeedDate(latestDate);
         } else {
           console.log("시드 업데이트 기록이 없습니다.");
@@ -513,14 +669,18 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         console.error("시드 업데이트 날짜 조회 중 예외 발생:", error);
       }
     }
-    
+
     fetchSeedUpdateDates();
   }, [userId]);
 
   useEffect(() => {
     async function fetchManualFixInfo() {
       if (!userId) return;
-      const { data, error } = await supabase.from("dynamicwave").select("manualFixInfo").eq("user_id", userId).maybeSingle();
+      const { data, error } = await supabase
+        .from("dynamicwave")
+        .select("manualFixInfo")
+        .eq("user_id", userId)
+        .maybeSingle();
       if (error) {
         console.error("Error fetching manualFixInfo:", error);
         return;
@@ -536,12 +696,20 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     const trade = trades[modalWithdrawalTradeIndex];
     const updatedTrades = trades.map((t) =>
       t.tradeIndex === trade.tradeIndex
-        ? { ...t, withdrawalAmount: modalWithdrawalAmount, actualwithdrawalAmount: modalWithdrawalAmount, manualFixedWithdrawal: modalWithdrawalAmount }
+        ? {
+            ...t,
+            withdrawalAmount: modalWithdrawalAmount,
+            actualwithdrawalAmount: modalWithdrawalAmount,
+            manualFixedWithdrawal: modalWithdrawalAmount,
+          }
         : t
     );
     const key = trade.buyDate;
-    const updatedManualFixInfo = { ...manualFixInfo, [key]: modalWithdrawalAmount };
-  
+    const updatedManualFixInfo = {
+      ...manualFixInfo,
+      [key]: modalWithdrawalAmount,
+    };
+
     try {
       // 기존 데이터를 가져옵니다.
       const { data: existingData, error: fetchError } = await supabase
@@ -549,15 +717,15 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         .select("settings")
         .eq("user_id", userId)
         .maybeSingle();
-  
+
       if (fetchError) {
         console.error("기존 데이터 가져오기 실패:", fetchError);
         return;
       }
-  
+
       // 기존 settings가 있으면 사용하고, 없으면 기본값으로 빈 객체를 설정합니다.
       const currentSettings = existingData?.settings || {};
-  
+
       // 업데이트 시 settings를 포함합니다.
       const { error } = await supabase.from("dynamicwave").upsert({
         user_id: userId,
@@ -565,7 +733,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         tradehistory: updatedTrades,
         manualFixInfo: updatedManualFixInfo,
       });
-  
+
       if (error) {
         console.error("출금액 업데이트 실패:", error);
       } else {
@@ -622,45 +790,98 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
               {trades.map((trade, index) => (
                 <tr key={index}>
                   <td className="text-center">
-                    {new Date(trade.buyDate).toLocaleDateString("ko-KR", { month: "2-digit", day: "2-digit" })}
+                    {new Date(trade.buyDate).toLocaleDateString("ko-KR", {
+                      month: "2-digit",
+                      day: "2-digit",
+                    })}
                   </td>
                   <td className="text-center">
-                    {trade.mode === "safe" ? <span style={{ color: "green" }}>안전</span> : <span style={{ color: "red" }}>공세</span>}
+                    {trade.mode === "safe" ? (
+                      <span style={{ color: "green" }}>안전</span>
+                    ) : (
+                      <span style={{ color: "red" }}>공세</span>
+                    )}
                   </td>
-                  <td className="text-center">{trade.targetBuyPrice.toFixed(2)}</td>
-                  <td className="text-center">{trade.actualBuyPrice.toFixed(2)}</td>
+                  <td className="text-center">
+                    {trade.targetBuyPrice.toFixed(2)}
+                  </td>
+                  <td className="text-center">
+                    {trade.actualBuyPrice.toFixed(2)}
+                  </td>
                   <td className="text-center">{trade.quantity}</td>
-                  <td className="text-center">{trade.targetSellPrice.toFixed(2)}</td>
-                  <td className="text-center cursor-pointer" onClick={() => openSellModal(index)}>
+                  <td className="text-center">
+                    {trade.targetSellPrice.toFixed(2)}
+                  </td>
+                  <td
+                    className="text-center cursor-pointer"
+                    onClick={() => openSellModal(index)}
+                  >
                     {trade.actualBuyPrice > 0
                       ? trade.sellDate
-                        ? new Date(trade.sellDate).toLocaleDateString("ko-KR", { month: "2-digit", day: "2-digit" })
+                        ? new Date(trade.sellDate).toLocaleDateString("ko-KR", {
+                            month: "2-digit",
+                            day: "2-digit",
+                          })
                         : "-"
                       : "-"}
                   </td>
-                  <td className="text-center cursor-pointer" onClick={() => openSellModal(index)}>
-                    {trade.actualBuyPrice > 0 ? (trade.actualSellPrice !== undefined ? trade.actualSellPrice.toFixed(2) : "-") : "-"}
+                  <td
+                    className="text-center cursor-pointer"
+                    onClick={() => openSellModal(index)}
+                  >
+                    {trade.actualBuyPrice > 0
+                      ? trade.actualSellPrice !== undefined
+                        ? trade.actualSellPrice.toFixed(2)
+                        : "-"
+                      : "-"}
                   </td>
-                  <td className="text-center cursor-pointer" onClick={() => openSellModal(index)}>
-                    {trade.actualBuyPrice > 0 ? (typeof trade.sellQuantity === "number" ? trade.sellQuantity : "-") : "-"}
+                  <td
+                    className="text-center cursor-pointer"
+                    onClick={() => openSellModal(index)}
+                  >
+                    {trade.actualBuyPrice > 0
+                      ? typeof trade.sellQuantity === "number"
+                        ? trade.sellQuantity
+                        : "-"
+                      : "-"}
                   </td>
-                  <td className="text-center">{trade.actualBuyPrice > 0 ? trade.quantity - (trade.sellQuantity || 0) : "-"}</td>
-                  <td className="text-center">{trade.actualBuyPrice > 0 ? (trade.profit?.toFixed(2) || 0) : "-"}</td>
-                  <td className="text-center">{trade.quantity - (trade.sellQuantity || 0) > 0 ? trade.daysUntilSell : "-"}</td>
-                  <td className="text-center">{trade.dailyProfit?.toFixed(2)}</td>
+                  <td className="text-center">
+                    {trade.actualBuyPrice > 0
+                      ? trade.quantity - (trade.sellQuantity || 0)
+                      : "-"}
+                  </td>
+                  <td className="text-center">
+                    {trade.actualBuyPrice > 0
+                      ? trade.profit?.toFixed(2) || 0
+                      : "-"}
+                  </td>
+                  <td className="text-center">
+                    {trade.quantity - (trade.sellQuantity || 0) > 0
+                      ? trade.daysUntilSell
+                      : "-"}
+                  </td>
+                  <td className="text-center">
+                    {trade.dailyProfit?.toFixed(2)}
+                  </td>
                   <td className="text-center">
                     {trade.buyDate ? (
-                      latestUpdatedSeedDate && new Date(trade.buyDate) > new Date(latestUpdatedSeedDate) ? (
+                      latestUpdatedSeedDate &&
+                      new Date(trade.buyDate) >
+                        new Date(latestUpdatedSeedDate) ? (
                         // 1. 마지막 시드 업데이트 이후의 거래일: 빨간색 + 클릭 가능 (수정 가능)
-                        <span 
-                          className="cursor-pointer text-red-500" 
+                        <span
+                          className="cursor-pointer text-red-500"
                           onClick={() => openWithdrawalModal(index)}
                         >
-                          {trade.manualFixedWithdrawal !== undefined ? trade.manualFixedWithdrawal : "0(예정)"}
+                          {trade.manualFixedWithdrawal !== undefined
+                            ? trade.manualFixedWithdrawal
+                            : "0(예정)"}
                         </span>
                       ) : seedUpdateDates.includes(trade.buyDate) ? (
                         // 2. 시드 업데이트가 발생한 날짜: 빨간색 (수정 불가)
-                        <span className="text-red-500">{trade.actualwithdrawalAmount ?? 0}</span>
+                        <span className="text-red-500">
+                          {trade.actualwithdrawalAmount ?? 0}
+                        </span>
                       ) : (
                         // 3. 그 외 모든 날짜: 흰색 (수정 불가)
                         <span>{trade.actualwithdrawalAmount ?? 0}</span>
@@ -678,14 +899,21 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
 
       {isModalOpen && (
         <div className="fixed inset-0 flex items-center justify-center z-50">
-          <div className="absolute inset-0 bg-black opacity-50" onClick={() => setIsModalOpen(false)}></div>
+          <div
+            className="absolute inset-0 bg-black opacity-50"
+            onClick={() => setIsModalOpen(false)}
+          ></div>
           <div className="bg-gray-800 p-4 rounded shadow-lg z-10 w-80">
-            <h3 className="text-lg font-bold mb-4 text-white">매도 정보 수정</h3>
+            <h3 className="text-lg font-bold mb-4 text-white">
+              매도 정보 수정
+            </h3>
             <div className="mb-2">
               <label className="block mb-1 text-white">매도 날짜</label>
               <DatePicker
                 selected={modalSellDate ? new Date(modalSellDate) : null}
-                onChange={(date) => setModalSellDate(date ? date.toISOString().split("T")[0] : "")}
+                onChange={(date) =>
+                  setModalSellDate(date ? date.toISOString().split("T")[0] : "")
+                }
                 dateFormat="MM-dd"
                 className="border border-gray-600 p-1 rounded w-full bg-gray-700 text-white"
               />
@@ -704,15 +932,23 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
               <input
                 type="number"
                 value={modalSellQuantity !== undefined ? modalSellQuantity : ""}
-                onChange={(e) => setModalSellQuantity(parseFloat(e.target.value))}
+                onChange={(e) =>
+                  setModalSellQuantity(parseFloat(e.target.value))
+                }
                 className="border border-gray-600 p-1 rounded w-full bg-gray-700 text-white"
               />
             </div>
             <div className="flex justify-end mt-4">
-              <button onClick={() => setIsModalOpen(false)} className="bg-gray-600 px-3 py-1 rounded mr-2 text-white">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="bg-gray-600 px-3 py-1 rounded mr-2 text-white"
+              >
                 취소
               </button>
-              <button onClick={handleModalConfirm} className="bg-blue-500 text-white px-3 py-1 rounded">
+              <button
+                onClick={handleModalConfirm}
+                className="bg-blue-500 text-white px-3 py-1 rounded"
+              >
                 확인
               </button>
             </div>
@@ -722,7 +958,10 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
 
       {isWithdrawalModalOpen && (
         <div className="fixed inset-0 flex items-center justify-center z-50">
-          <div className="absolute inset-0 bg-black opacity-50" onClick={() => setIsWithdrawalModalOpen(false)}></div>
+          <div
+            className="absolute inset-0 bg-black opacity-50"
+            onClick={() => setIsWithdrawalModalOpen(false)}
+          ></div>
           <div className="bg-gray-800 p-4 rounded shadow-lg z-10 w-80">
             <h3 className="text-lg font-bold mb-4 text-white">출금액 수정</h3>
             <div className="mb-2">
@@ -730,15 +969,23 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
               <input
                 type="number"
                 value={modalWithdrawalAmount}
-                onChange={(e) => setModalWithdrawalAmount(parseFloat(e.target.value))}
+                onChange={(e) =>
+                  setModalWithdrawalAmount(parseFloat(e.target.value))
+                }
                 className="border border-gray-600 p-1 rounded w-full bg-gray-700 text-white"
               />
             </div>
             <div className="flex justify-end mt-4">
-              <button onClick={() => setIsWithdrawalModalOpen(false)} className="bg-gray-600 px-3 py-1 rounded mr-2 text-white">
+              <button
+                onClick={() => setIsWithdrawalModalOpen(false)}
+                className="bg-gray-600 px-3 py-1 rounded mr-2 text-white"
+              >
                 취소
               </button>
-              <button onClick={handleWithdrawalModalConfirm} className="bg-blue-500 text-white px-3 py-1 rounded">
+              <button
+                onClick={handleWithdrawalModalConfirm}
+                className="bg-blue-500 text-white px-3 py-1 rounded"
+              >
                 확인
               </button>
             </div>
