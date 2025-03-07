@@ -399,7 +399,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         onTradesUpdate?.(newTrades);
       }
 
-      const todayStr = new Date().toISOString().split("T")[0];
+      const todayStr = "2025-03-02"; // 테스트를 위해 임의의 과거 날짜로 설정
       const lastTradeSale =
         newTrades
           .filter((t) => t.buyDate === todayStr && t.targetSellPrice > 0)
