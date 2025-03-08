@@ -36,13 +36,47 @@ const InvestmentSettings: React.FC<InvestmentSettingsProps> = ({
           <label className="text-sm mb-2">투자 시작일</label>
           <div className="flex flex-col">
             <DatePicker
-              selected={
-                settings.startDate ? new Date(settings.startDate) : null
-              }
+              selected={(() => {
+                try {
+                  // 날짜 형식 검증
+                  if (!settings.startDate) return null;
+
+                  // ISO 형식인지 확인 (YYYY-MM-DD)
+                  if (!/^\d{4}-\d{2}-\d{2}$/.test(settings.startDate)) {
+                    console.warn(
+                      `유효하지 않은 날짜 형식: ${settings.startDate}, 기본값으로 대체합니다.`
+                    );
+                    return new Date();
+                  }
+
+                  const date = new Date(settings.startDate);
+                  // 유효한 날짜인지 확인
+                  if (isNaN(date.getTime())) {
+                    console.warn(
+                      `유효하지 않은 날짜: ${settings.startDate}, 기본값으로 대체합니다.`
+                    );
+                    return new Date();
+                  }
+
+                  return date;
+                } catch (error) {
+                  console.error("날짜 파싱 오류:", error);
+                  return new Date(); // 오류 발생 시 현재 날짜 사용
+                }
+              })()}
               onChange={(date) => {
-                if (date) {
-                  const formattedDate = date.toISOString().split("T")[0];
-                  onChange("startDate", formattedDate);
+                try {
+                  if (date) {
+                    // 날짜를 ISO 형식(YYYY-MM-DD)으로 변환
+                    const formattedDate = date.toISOString().split("T")[0];
+                    onChange("startDate", formattedDate);
+                  }
+                } catch (error) {
+                  console.error("날짜 변환 오류:", error);
+                  // 오류 발생 시 현재 날짜 사용
+                  const today = new Date();
+                  const formattedToday = today.toISOString().split("T")[0];
+                  onChange("startDate", formattedToday);
                 }
               }}
               dateFormat="yy.MM.dd"

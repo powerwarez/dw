@@ -39,7 +39,7 @@ const defaultSettings: AppSettings = {
   initialInvestment: 75000,
   safeMaxDays: 30,
   aggressiveMaxDays: 7,
-  startDate: "25-01-01",
+  startDate: "2025-01-01",
   safeBuyPercent: 3,
   safeSellPercent: 0.2,
   seedDivision: 7,
