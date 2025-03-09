@@ -335,8 +335,34 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         if (rawBuyDateObj < startDateObj) continue;
 
         const buyDateStr = rawBuyDateObj.toISOString().split("T")[0];
-        const existingTrade = newTrades.find((t) => t.buyDate === buyDateStr);
-        if (existingTrade) continue;
+
+        // 금요일인지 확인
+        const isWeekend = rawBuyDateObj.getDay() === 5; // 5는 금요일
+
+        // 해당 날짜의 모든 기존 트레이드 찾기
+        const existingTrades = newTrades.filter(
+          (t) => t.buyDate === buyDateStr
+        );
+
+        // 이미 해당 날짜에 트레이드가 있으면 스킵
+        if (existingTrades.length > 0) {
+          console.log(
+            `${buyDateStr}에 이미 ${existingTrades.length}개의 트레이드가 존재합니다. 스킵합니다.`
+          );
+          if (isWeekend) {
+            console.log(
+              `${buyDateStr}는 금요일입니다. 중복 생성 방지를 위해 추가 검증을 수행합니다.`
+            );
+          }
+          continue;
+        }
+
+        // 금요일인 경우 추가 로깅
+        if (isWeekend) {
+          console.log(
+            `${buyDateStr}는 금요일입니다. 새로운 트레이드를 생성합니다.`
+          );
+        }
 
         const mode =
           sortedModes.length > 0
