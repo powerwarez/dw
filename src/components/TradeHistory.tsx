@@ -149,6 +149,9 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
           : 0) + 1;
       let blockCount = 0;
 
+      // 시드 업데이트 날짜 초기화 확인
+      await initializeUpdatedSeedIfNeeded();
+
       if (initialTrades && initialTrades.length > 0) {
         console.log("DB에 존재하는 Trade 내역을 사용합니다.");
         newTrades = [...initialTrades];
@@ -645,8 +648,15 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         return calculatedSeed;
       }
 
+      // updatedSeed가 null인 경우 빈 배열로 초기화
       const updatedSeedRecords: { date: string; value: number }[] =
-        Array.isArray(dbData?.updatedSeed) ? dbData.updatedSeed : [];
+        dbData?.updatedSeed
+          ? Array.isArray(dbData.updatedSeed)
+            ? dbData.updatedSeed
+            : []
+          : [];
+
+      console.log("현재 updatedSeed 기록:", updatedSeedRecords);
 
       // 이미 같은 날짜에 업데이트된 기록이 있는지 확인
       const existingRecordIndex = updatedSeedRecords.findIndex(
@@ -689,7 +699,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
       }
 
       console.log(
-        `시드 업데이트 완료 - 날짜: ${recordDate}, 값: ${calculatedSeed}`
+        `시드 업데이트 완료 - 날짜: ${recordDate}, 값: ${calculatedSeed}, 기록 개수: ${updatedSeedRecords.length}`
       );
 
       // 상태 업데이트
@@ -727,6 +737,52 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     const updatedSeed = await checkAndUpdateSeed(newSeed, trades, tradeDate);
     return updatedSeed;
   };
+
+  // 데이터베이스에 updatedSeed 필드가 없는 경우 초기화하는 함수
+  const initializeUpdatedSeedIfNeeded = async () => {
+    if (!userId) return;
+
+    try {
+      // 현재 데이터 조회
+      const { data, error } = await supabase
+        .from("dynamicwave")
+        .select("updatedSeed, settings, tradehistory")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (error) {
+        console.error("데이터 조회 오류:", error);
+        return;
+      }
+
+      // updatedSeed가 null이면 빈 배열로 초기화
+      if (!data?.updatedSeed) {
+        console.log("updatedSeed 필드가 null입니다. 빈 배열로 초기화합니다.");
+
+        const { error: updateError } = await supabase
+          .from("dynamicwave")
+          .update({
+            updatedSeed: [],
+          })
+          .eq("user_id", userId);
+
+        if (updateError) {
+          console.error("updatedSeed 초기화 오류:", updateError);
+        } else {
+          console.log("updatedSeed 필드가 빈 배열로 초기화되었습니다.");
+          setSeedUpdateDates([]);
+        }
+      }
+    } catch (error) {
+      console.error("updatedSeed 초기화 중 예외 발생:", error);
+    }
+  };
+
+  useEffect(() => {
+    // 컴포넌트 마운트 시 updatedSeed 필드 초기화 확인
+    initializeUpdatedSeedIfNeeded();
+    // eslint-disable-next-line
+  }, [userId]);
 
   const adjustSellDate = (sellDateStr: string): string => {
     const date = new Date(sellDateStr);
@@ -796,11 +852,17 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
           return;
         }
 
-        if (
-          data?.updatedSeed &&
-          Array.isArray(data.updatedSeed) &&
-          data.updatedSeed.length > 0
-        ) {
+        // updatedSeed가 null인 경우 초기화
+        if (!data?.updatedSeed) {
+          console.log("updatedSeed가 null입니다. 초기화를 시도합니다.");
+          await initializeUpdatedSeedIfNeeded();
+          setSeedUpdateDates([]);
+          setLatestUpdatedSeedDate("");
+          return;
+        }
+
+        // updatedSeed가 존재하는 경우 처리
+        if (Array.isArray(data.updatedSeed) && data.updatedSeed.length > 0) {
           // 날짜순으로 정렬
           const sorted = data.updatedSeed.sort(
             (
@@ -824,8 +886,9 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
           );
           setLatestUpdatedSeedDate(latestDate);
         } else {
-          console.log("시드 업데이트 기록이 없습니다.");
+          console.log("시드 업데이트 기록이 없거나 빈 배열입니다.");
           setSeedUpdateDates([]);
+          setLatestUpdatedSeedDate("");
         }
       } catch (error) {
         console.error("시드 업데이트 날짜 조회 중 예외 발생:", error);
@@ -949,111 +1012,123 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
               </tr>
             </thead>
             <tbody>
-              {trades.map((trade, index) => (
-                <tr key={index}>
-                  <td className="text-center">
-                    {new Date(trade.buyDate).toLocaleDateString("ko-KR", {
-                      month: "2-digit",
-                      day: "2-digit",
-                    })}
-                  </td>
-                  <td className="text-center">
-                    {trade.mode === "safe" ? (
-                      <span style={{ color: "green" }}>안전</span>
-                    ) : (
-                      <span style={{ color: "red" }}>공세</span>
-                    )}
-                  </td>
-                  <td className="text-center">
-                    {trade.targetBuyPrice.toFixed(2)}
-                  </td>
-                  <td className="text-center">
-                    {trade.actualBuyPrice.toFixed(2)}
-                  </td>
-                  <td className="text-center">{trade.quantity}</td>
-                  <td className="text-center">
-                    {trade.targetSellPrice.toFixed(2)}
-                  </td>
-                  <td
-                    className="text-center cursor-pointer"
-                    onClick={() => openSellModal(index)}
-                  >
-                    {trade.actualBuyPrice > 0
-                      ? trade.sellDate
-                        ? new Date(trade.sellDate).toLocaleDateString("ko-KR", {
-                            month: "2-digit",
-                            day: "2-digit",
-                          })
-                        : "-"
-                      : "-"}
-                  </td>
-                  <td
-                    className="text-center cursor-pointer"
-                    onClick={() => openSellModal(index)}
-                  >
-                    {trade.actualBuyPrice > 0
-                      ? trade.actualSellPrice !== undefined
-                        ? trade.actualSellPrice.toFixed(2)
-                        : "-"
-                      : "-"}
-                  </td>
-                  <td
-                    className="text-center cursor-pointer"
-                    onClick={() => openSellModal(index)}
-                  >
-                    {trade.actualBuyPrice > 0
-                      ? typeof trade.sellQuantity === "number"
-                        ? trade.sellQuantity
-                        : "-"
-                      : "-"}
-                  </td>
-                  <td className="text-center">
-                    {trade.actualBuyPrice > 0
-                      ? trade.quantity - (trade.sellQuantity || 0)
-                      : "-"}
-                  </td>
-                  <td className="text-center">
-                    {trade.actualBuyPrice > 0
-                      ? trade.profit?.toFixed(2) || 0
-                      : "-"}
-                  </td>
-                  <td className="text-center">
-                    {trade.quantity - (trade.sellQuantity || 0) > 0
-                      ? trade.daysUntilSell
-                      : "-"}
-                  </td>
-                  <td className="text-center">
-                    {trade.dailyProfit?.toFixed(2)}
-                  </td>
-                  <td className="text-center">
-                    {trade.buyDate ? (
-                      latestUpdatedSeedDate &&
-                      new Date(trade.buyDate) >
-                        new Date(latestUpdatedSeedDate) ? (
-                        // 1. 마지막 시드 업데이트 이후의 거래일: 빨간색 + 클릭 가능 (수정 가능)
-                        <span
-                          className="cursor-pointer text-red-500"
-                          onClick={() => openWithdrawalModal(index)}
-                        >
-                          {trade.manualFixedWithdrawal !== undefined
-                            ? trade.manualFixedWithdrawal
-                            : "0(예정)"}
-                        </span>
-                      ) : seedUpdateDates.includes(trade.buyDate) ? (
-                        // 2. 시드 업데이트가 발생한 날짜: 빨간색 (수정 불가)
-                        <span className="text-red-500">
-                          {trade.actualwithdrawalAmount ?? 0}
-                        </span>
+              {trades.map((trade, index) => {
+                // 시드 업데이트 날짜인지 확인
+                const isSeedUpdateDate = seedUpdateDates.includes(
+                  trade.buyDate
+                );
+                // 마지막 시드 업데이트 이후의 거래인지 확인
+                const isAfterLastSeedUpdate =
+                  latestUpdatedSeedDate &&
+                  new Date(trade.buyDate) > new Date(latestUpdatedSeedDate);
+
+                return (
+                  <tr key={index}>
+                    <td className="text-center">
+                      {new Date(trade.buyDate).toLocaleDateString("ko-KR", {
+                        month: "2-digit",
+                        day: "2-digit",
+                      })}
+                    </td>
+                    <td className="text-center">
+                      {trade.mode === "safe" ? (
+                        <span style={{ color: "green" }}>안전</span>
                       ) : (
-                        // 3. 그 외 모든 날짜: 흰색 (수정 불가)
-                        <span>{trade.actualwithdrawalAmount ?? 0}</span>
-                      )
-                    ) : (
-                      <span>-</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
+                        <span style={{ color: "red" }}>공세</span>
+                      )}
+                    </td>
+                    <td className="text-center">
+                      {trade.targetBuyPrice.toFixed(2)}
+                    </td>
+                    <td className="text-center">
+                      {trade.actualBuyPrice.toFixed(2)}
+                    </td>
+                    <td className="text-center">{trade.quantity}</td>
+                    <td className="text-center">
+                      {trade.targetSellPrice.toFixed(2)}
+                    </td>
+                    <td
+                      className="text-center cursor-pointer"
+                      onClick={() => openSellModal(index)}
+                    >
+                      {trade.actualBuyPrice > 0
+                        ? trade.sellDate
+                          ? new Date(trade.sellDate).toLocaleDateString(
+                              "ko-KR",
+                              {
+                                month: "2-digit",
+                                day: "2-digit",
+                              }
+                            )
+                          : "-"
+                        : "-"}
+                    </td>
+                    <td
+                      className="text-center cursor-pointer"
+                      onClick={() => openSellModal(index)}
+                    >
+                      {trade.actualBuyPrice > 0
+                        ? trade.actualSellPrice !== undefined
+                          ? trade.actualSellPrice.toFixed(2)
+                          : "-"
+                        : "-"}
+                    </td>
+                    <td
+                      className="text-center cursor-pointer"
+                      onClick={() => openSellModal(index)}
+                    >
+                      {trade.actualBuyPrice > 0
+                        ? typeof trade.sellQuantity === "number"
+                          ? trade.sellQuantity
+                          : "-"
+                        : "-"}
+                    </td>
+                    <td className="text-center">
+                      {trade.actualBuyPrice > 0
+                        ? trade.quantity - (trade.sellQuantity || 0)
+                        : "-"}
+                    </td>
+                    <td className="text-center">
+                      {trade.actualBuyPrice > 0
+                        ? trade.profit?.toFixed(2) || 0
+                        : "-"}
+                    </td>
+                    <td className="text-center">
+                      {trade.quantity - (trade.sellQuantity || 0) > 0
+                        ? trade.daysUntilSell
+                        : "-"}
+                    </td>
+                    <td className="text-center">
+                      {trade.dailyProfit?.toFixed(2)}
+                    </td>
+                    <td className="text-center">
+                      {trade.buyDate ? (
+                        isAfterLastSeedUpdate ? (
+                          // 1. 마지막 시드 업데이트 이후의 거래일: 빨간색 + 클릭 가능 (수정 가능)
+                          <span
+                            className="cursor-pointer text-red-500"
+                            onClick={() => openWithdrawalModal(index)}
+                          >
+                            {trade.manualFixedWithdrawal !== undefined
+                              ? trade.manualFixedWithdrawal
+                              : `${trade.withdrawalAmount || 0}(예정)`}
+                          </span>
+                        ) : isSeedUpdateDate ? (
+                          // 2. 시드 업데이트가 발생한 날짜: 빨간색 (수정 불가)
+                          <span className="text-red-500">
+                            {trade.actualwithdrawalAmount ?? 0}
+                          </span>
+                        ) : (
+                          // 3. 그 외 모든 날짜: 흰색 (수정 불가)
+                          <span>{trade.actualwithdrawalAmount ?? 0}</span>
+                        )
+                      ) : (
+                        <span>-</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
