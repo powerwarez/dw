@@ -134,6 +134,98 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     return decidedMode;
   }
 
+  // 새로운 함수: 날짜에 대한 거래가 없는 경우에만 생성
+  const createTradeIfNotExists = (
+    date: string,
+    existingTrades: Trade[],
+    closingPrices: PriceEntry[],
+    sortedModes: ModeItem[],
+    currentSeed: number,
+    settings: Settings,
+    manualFixInfo: { [key: string]: number },
+    tradeIndex: number
+  ): Trade | null => {
+    // 이미 해당 날짜에 거래가 있는지 확인
+    const existingTradesForDate = existingTrades.filter(
+      (trade) => trade.buyDate === date
+    );
+
+    if (existingTradesForDate.length > 0) {
+      console.log(
+        `${date} 날짜에 이미 ${existingTradesForDate.length}개의 거래가 존재합니다. 새 거래를 생성하지 않습니다.`
+      );
+
+      // 해당 날짜의 가장 최근 거래 반환
+      return existingTradesForDate.reduce((latest, trade) =>
+        trade.tradeIndex > latest.tradeIndex ? trade : latest
+      );
+    }
+
+    // 해당 날짜의 종가 데이터 가져오기
+    const priceEntry = closingPrices.find((price) => price.date === date);
+    if (!priceEntry) {
+      console.log(`${date} 날짜에 대한 종가 데이터가 없습니다.`);
+      return null;
+    }
+
+    // 전날 종가 가져오기
+    const priceIndex = closingPrices.findIndex((price) => price.date === date);
+    const previousClosePrice =
+      priceIndex > 0
+        ? parseFloat(closingPrices[priceIndex - 1].price)
+        : parseFloat(priceEntry.price);
+
+    // 현재 가격
+    const currentPrice = parseFloat(priceEntry.price);
+
+    // 모드 결정
+    const mode =
+      sortedModes.length > 0
+        ? findModeForDateNoWait(date, sortedModes)
+        : "safe";
+
+    // 모드에 따른 설정 가져오기
+    const buyPercent =
+      mode === "safe" ? settings.safeBuyPercent : settings.aggressiveBuyPercent;
+
+    const sellPercent =
+      mode === "safe"
+        ? settings.safeSellPercent
+        : settings.aggressiveSellPercent;
+
+    const daysUntilSell =
+      mode === "safe" ? settings.safeMaxDays : settings.aggressiveMaxDays;
+
+    // 거래 상세 계산
+    const targetBuyPrice = previousClosePrice * (1 + buyPercent / 100);
+    const actualBuyPrice = currentPrice <= targetBuyPrice ? currentPrice : 0;
+    const quantity = actualBuyPrice
+      ? Math.floor(currentSeed / (settings.seedDivision || 1) / targetBuyPrice)
+      : 0;
+    const targetSellPrice = actualBuyPrice * (1 + sellPercent / 100);
+    const withdrawalFromManualFix =
+      manualFixInfo[date] ?? settings.withdrawalAmount;
+
+    // 새 거래 생성
+    const newTrade: Trade = {
+      tradeIndex,
+      buyDate: date,
+      mode,
+      targetBuyPrice,
+      actualBuyPrice,
+      quantity,
+      targetSellPrice,
+      daysUntilSell,
+      seedForDay: currentSeed,
+      dailyProfit: 0,
+      withdrawalAmount: withdrawalFromManualFix,
+      actualwithdrawalAmount: withdrawalFromManualFix,
+    };
+
+    console.log(`${date} 날짜에 새로운 트레이드 생성:`, newTrade);
+    return newTrade;
+  };
+
   useEffect(() => {
     const fetchTrades = async () => {
       let newTrades: Trade[] = [];
@@ -324,87 +416,78 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         const yesterdayDate = new Date();
         yesterdayDate.setDate(yesterdayDate.getDate() - 1);
         const yesterdayStr = yesterdayDate.toISOString().split("T")[0];
-        const existingYesterdayTrade = initialTrades.find(
+
+        // 어제 날짜의 기존 거래 찾기
+        const existingYesterdayTrades = newTrades.filter(
           (trade) =>
-            new Date(trade.buyDate).toISOString().split("T")[0] ===
-              yesterdayStr && trade.targetSellPrice > 0
+            new Date(trade.buyDate).toISOString().split("T")[0] === yesterdayStr
         );
 
-        if (existingYesterdayTrade) {
+        if (existingYesterdayTrades.length > 0) {
+          // 어제 날짜에 이미 거래가 있으면 가장 최근 것 사용
+          const existingYesterdayTrade = existingYesterdayTrades.reduce(
+            (latest, trade) =>
+              trade.tradeIndex > latest.tradeIndex ? trade : latest,
+            existingYesterdayTrades[0]
+          );
+
           console.log("계산된 yesterdaySell:", existingYesterdayTrade);
           onUpdateYesterdaySell?.(existingYesterdayTrade);
         } else if (closingPrices.length > 0) {
+          // 어제 날짜에 기존 거래가 없으면 새로 생성
           const yesterdayClosing = closingPrices.find(
             (priceEntry) =>
               new Date(priceEntry.date).toISOString().split("T")[0] ===
               yesterdayStr
           );
+
           if (yesterdayClosing) {
-            const currentPrice = parseFloat(yesterdayClosing.price);
-            const mode =
-              sortedModes.length > 0
-                ? findModeForDateNoWait(yesterdayStr, sortedModes)
-                : "safe";
-            const buyPercent =
-              mode === "safe"
-                ? settings.safeBuyPercent
-                : settings.aggressiveBuyPercent;
-            const sellPercent =
-              mode === "safe"
-                ? settings.safeSellPercent
-                : settings.aggressiveSellPercent;
-            const daysUntilSell =
-              mode === "safe"
-                ? settings.safeMaxDays
-                : settings.aggressiveMaxDays;
-            const targetBuyPrice = currentPrice * (1 + buyPercent / 100);
-            const actualBuyPrice = currentPrice;
-            const quantity = Math.floor(
-              currentSeed / settings.seedDivision / targetBuyPrice
-            );
-            const targetSellPrice = actualBuyPrice * (1 + sellPercent / 100);
-            const withdrawalFromManualFix =
-              manualFixInfo[yesterdayStr] ?? settings.withdrawalAmount;
-
-            const newYesterdayTrade: Trade = {
-              tradeIndex,
-              buyDate: yesterdayStr,
-              mode,
-              targetBuyPrice,
-              actualBuyPrice,
-              quantity,
-              targetSellPrice,
-              daysUntilSell,
-              seedForDay: currentSeed,
-              dailyProfit: 0,
-              withdrawalAmount: withdrawalFromManualFix,
-              actualwithdrawalAmount: withdrawalFromManualFix,
-            };
-            console.log("생성된 어제 트레이드:", newYesterdayTrade);
-            onUpdateYesterdaySell?.(newYesterdayTrade);
-            newTrades.push(newYesterdayTrade);
-            setTrades(newTrades);
-            onTradesUpdate?.(newTrades);
-            await supabase.from("dynamicwave").upsert({
-              user_id: userId,
-              settings: { ...settings },
-              tradehistory: newTrades,
+            // 어제 날짜의 종가 데이터가 있으면 새 거래 생성
+            const newYesterdayTrade = createTradeIfNotExists(
+              yesterdayStr,
+              newTrades,
+              closingPrices,
+              sortedModes,
+              currentSeed,
+              settings,
               manualFixInfo,
-            });
-            tradeIndex++;
-            blockCount++;
+              tradeIndex
+            );
 
-            // 블록 카운트가 10이 되면 시드 업데이트
-            if (blockCount === 10) {
-              console.log(
-                "어제 거래 추가 후 blockCount가 10이 되어 시드 업데이트 실행"
-              );
-              currentSeed = await updateSeedForTrades(
-                newTrades,
-                currentSeed,
-                newYesterdayTrade.buyDate
-              );
-              blockCount = 0;
+            if (
+              newYesterdayTrade &&
+              !newTrades.some((t) => t.buyDate === yesterdayStr)
+            ) {
+              console.log("생성된 어제 트레이드:", newYesterdayTrade);
+              onUpdateYesterdaySell?.(newYesterdayTrade);
+              newTrades.push(newYesterdayTrade);
+              setTrades(newTrades);
+              onTradesUpdate?.(newTrades);
+              await supabase.from("dynamicwave").upsert({
+                user_id: userId,
+                settings: { ...settings },
+                tradehistory: newTrades,
+                manualFixInfo,
+              });
+              tradeIndex++;
+              blockCount++;
+
+              // 블록 카운트가 10이 되면 시드 업데이트
+              if (blockCount === 10) {
+                console.log(
+                  "어제 거래 추가 후 blockCount가 10이 되어 시드 업데이트 실행"
+                );
+                currentSeed = await updateSeedForTrades(
+                  newTrades,
+                  currentSeed,
+                  newYesterdayTrade.buyDate
+                );
+                blockCount = 0;
+              }
+            } else if (newYesterdayTrade) {
+              // 이미 어제 날짜의 거래가 있으면 업데이트만 수행
+              console.log("기존 어제 트레이드 사용:", newYesterdayTrade);
+              onUpdateYesterdaySell?.(newYesterdayTrade);
             }
           } else {
             console.warn("어제 종가가 존재하지 않습니다.");
@@ -417,7 +500,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
       const currentDateStr = currentDate.toISOString().split("T")[0];
 
       // 오늘 날짜의 트레이드가 이미 있는지 확인
-      const existingCurrentDateTrade = newTrades.find(
+      const existingCurrentDateTrades = newTrades.filter(
         (trade) => trade.buyDate === currentDateStr
       );
 
@@ -427,85 +510,44 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
       );
 
       // 오늘 날짜의 트레이드가 없고, 종가 데이터가 있으면 새 트레이드 생성
-      if (!existingCurrentDateTrade && currentDateClosingData) {
-        // 요일 확인
-        const dayOfWeek = currentDate.getDay();
-        const dayNames = ["일", "월", "화", "수", "목", "금", "토"];
-        const dayName = dayNames[dayOfWeek];
-
-        console.log(
-          `오늘(${currentDateStr}, ${dayName}) 트레이드가 없고 종가 데이터가 있어 새 트레이드를 생성합니다.`
+      if (existingCurrentDateTrades.length === 0 && currentDateClosingData) {
+        const todayTrade = createTradeIfNotExists(
+          currentDateStr,
+          newTrades,
+          closingPrices,
+          sortedModes,
+          currentSeed,
+          settings,
+          manualFixInfo,
+          tradeIndex
         );
 
-        const currentPrice = parseFloat(currentDateClosingData.price);
-        const mode =
-          sortedModes.length > 0
-            ? findModeForDateNoWait(currentDateStr, sortedModes)
-            : "safe";
-        const buyPercent =
-          mode === "safe"
-            ? settings.safeBuyPercent
-            : settings.aggressiveBuyPercent;
-        const sellPercent =
-          mode === "safe"
-            ? settings.safeSellPercent
-            : settings.aggressiveSellPercent;
-        const daysUntilSell =
-          mode === "safe" ? settings.safeMaxDays : settings.aggressiveMaxDays;
+        if (todayTrade) {
+          console.log("새 오늘 트레이드 생성:", todayTrade);
+          newTrades.push(todayTrade);
+          tradeIndex++;
+          blockCount++;
 
-        // 이전 날짜의 종가 찾기
-        const previousDayIndex =
-          closingPrices.findIndex((price) => price.date === currentDateStr) - 1;
-        const previousClosePrice =
-          previousDayIndex >= 0
-            ? parseFloat(closingPrices[previousDayIndex].price)
-            : currentPrice;
-
-        const targetBuyPrice = previousClosePrice * (1 + buyPercent / 100);
-        const actualBuyPrice =
-          currentPrice <= targetBuyPrice ? currentPrice : 0;
-        const quantity = actualBuyPrice
-          ? Math.floor(
-              currentSeed / (settings.seedDivision || 1) / targetBuyPrice
-            )
-          : 0;
-        const targetSellPrice = actualBuyPrice * (1 + sellPercent / 100);
-        const withdrawalFromManualFix =
-          manualFixInfo[currentDateStr] ?? settings.withdrawalAmount;
-
-        const newCurrentDateTrade: Trade = {
-          tradeIndex,
-          buyDate: currentDateStr,
-          mode,
-          targetBuyPrice,
-          actualBuyPrice,
-          quantity,
-          targetSellPrice,
-          daysUntilSell,
-          seedForDay: currentSeed,
-          dailyProfit: 0,
-          withdrawalAmount: withdrawalFromManualFix,
-          actualwithdrawalAmount: withdrawalFromManualFix,
-        };
-
-        console.log("생성된 오늘 트레이드:", newCurrentDateTrade);
-        newTrades.push(newCurrentDateTrade);
-        blockCount++;
-
-        // 블록 카운트가 10이 되면 시드 업데이트
-        if (blockCount === 10) {
-          console.log(
-            `오늘 거래 추가 후 blockCount가 10이 되어 시드 업데이트 실행 (${currentDateStr})`
-          );
-          currentSeed = await updateSeedForTrades(
-            newTrades,
-            currentSeed,
-            newCurrentDateTrade.buyDate
-          );
-          blockCount = 0;
+          // 블록 카운트가 10이 되면 시드 업데이트
+          if (blockCount === 10) {
+            console.log(
+              `오늘 거래 추가 후 blockCount가 10이 되어 시드 업데이트 실행 (${currentDateStr})`
+            );
+            currentSeed = await updateSeedForTrades(
+              newTrades,
+              currentSeed,
+              todayTrade.buyDate
+            );
+            blockCount = 0;
+          }
         }
+      } else if (existingCurrentDateTrades.length > 0) {
+        console.log(
+          `오늘(${currentDateStr}) 날짜에 이미 ${existingCurrentDateTrades.length}개의 거래가 존재합니다. 새 거래를 생성하지 않습니다.`
+        );
       }
 
+      // 과거 날짜에 대한 거래 생성
       for (let index = 0; index < closingPrices.length; index++) {
         const priceEntry = closingPrices[index];
         const rawBuyDateObj = new Date(priceEntry.date);
@@ -513,158 +555,123 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
 
         const buyDateStr = rawBuyDateObj.toISOString().split("T")[0];
 
-        // 요일 확인 (0: 일요일, 1: 월요일, ..., 6: 토요일)
-        const dayOfWeek = rawBuyDateObj.getDay();
-        const dayNames = ["일", "월", "화", "수", "목", "금", "토"];
-        const dayName = dayNames[dayOfWeek];
-
-        // 해당 날짜의 모든 기존 트레이드 찾기
-        const existingTrades = newTrades.filter(
-          (t) => t.buyDate === buyDateStr
+        // 해당 날짜에 이미 거래가 있는지 확인
+        const existingTradeForDate = newTrades.find(
+          (trade) => trade.buyDate === buyDateStr
         );
 
-        // 이미 해당 날짜에 트레이드가 있으면 스킵
-        if (existingTrades.length > 0) {
+        if (existingTradeForDate) {
+          // 요일 확인
+          const dayOfWeek = rawBuyDateObj.getDay();
+          const dayNames = ["일", "월", "화", "수", "목", "금", "토"];
+          const dayName = dayNames[dayOfWeek];
+
           console.log(
-            `${buyDateStr}(${dayName})에 이미 ${existingTrades.length}개의 트레이드가 존재합니다. 스킵합니다.`
+            `${buyDateStr}(${dayName})에 이미 거래가 존재합니다. 스킵합니다.`
           );
-
-          // 중복 트레이드 상세 정보 로깅
-          existingTrades.forEach((trade, idx) => {
-            console.log(
-              `  - 기존 트레이드 #${idx + 1}: 인덱스=${
-                trade.tradeIndex
-              }, 모드=${trade.mode}, 매수가=${trade.actualBuyPrice}, 수량=${
-                trade.quantity
-              }`
-            );
-          });
-
           continue;
         }
 
-        // 새 트레이드 생성 로깅
-        console.log(
-          `${buyDateStr}(${dayName})에 새로운 트레이드를 생성합니다.`
+        // 해당 날짜에 거래가 없으면 새로 생성
+        const historicalTrade = createTradeIfNotExists(
+          buyDateStr,
+          newTrades,
+          closingPrices,
+          sortedModes,
+          currentSeed,
+          settings,
+          manualFixInfo,
+          tradeIndex
         );
 
-        const mode =
-          sortedModes.length > 0
-            ? findModeForDateNoWait(buyDateStr, sortedModes)
-            : "safe";
-        const currentPrice = parseFloat(priceEntry.price);
-        const previousClosePrice =
-          index > 0 ? parseFloat(closingPrices[index - 1].price) : currentPrice;
-        const buyPercent =
-          mode === "safe"
-            ? settings.safeBuyPercent
-            : settings.aggressiveBuyPercent;
-        const sellPercent =
-          mode === "safe"
-            ? settings.safeSellPercent
-            : settings.aggressiveSellPercent;
-        const targetBuyPrice = previousClosePrice * (1 + buyPercent / 100);
-        const actualBuyPrice =
-          currentPrice <= targetBuyPrice ? currentPrice : 0;
-        const quantity = actualBuyPrice
-          ? Math.floor(
-              currentSeed / (settings.seedDivision || 1) / targetBuyPrice
-            )
-          : 0;
-        const targetSellPrice = actualBuyPrice * (1 + sellPercent / 100);
-        const daysUntilSell =
-          mode === "safe" ? settings.safeMaxDays : settings.aggressiveMaxDays;
-        const withdrawalFromManualFix =
-          manualFixInfo[buyDateStr] ?? settings.withdrawalAmount;
-
-        const trade: Trade = {
-          tradeIndex,
-          buyDate: buyDateStr,
-          mode,
-          targetBuyPrice,
-          actualBuyPrice,
-          quantity,
-          targetSellPrice,
-          seedForDay: currentSeed,
-          dailyProfit: 0,
-          daysUntilSell,
-          withdrawalAmount: withdrawalFromManualFix,
-          actualwithdrawalAmount: withdrawalFromManualFix,
-        };
-
-        for (let i = index + 1; i < closingPrices.length; i++) {
-          const futurePrice = parseFloat(closingPrices[i].price);
-          if (futurePrice >= trade.targetSellPrice && trade.quantity > 0) {
-            trade.sellDate = closingPrices[i].date;
-            trade.actualSellPrice = futurePrice;
-            trade.sellQuantity = trade.quantity;
-            trade.profit =
-              (futurePrice - trade.actualBuyPrice) * trade.quantity;
-            trade.sellDate = adjustSellDate(trade.sellDate!);
-            dailyProfitMap[trade.sellDate] = dailyProfitMap[trade.sellDate] || {
-              totalProfit: 0,
-              tradeIndex: 0,
-            };
-            dailyProfitMap[trade.sellDate].totalProfit += trade.profit || 0;
-            dailyProfitMap[trade.sellDate].tradeIndex = trade.tradeIndex;
-            break;
-          }
-        }
-        trade.dailyProfit = dailyProfitMap[trade.buyDate]?.totalProfit || 0;
-
-        for (let i = 0; i < newTrades.length; i++) {
-          if (!newTrades[i].sellDate) {
-            const diffDays = Math.floor(
-              (new Date(buyDateStr).getTime() -
-                new Date(newTrades[i].buyDate).getTime()) /
-                (1000 * 60 * 60 * 24)
-            );
-            const maxDays =
-              newTrades[i].mode === "safe"
-                ? settings.safeMaxDays
-                : settings.aggressiveMaxDays;
-            newTrades[i].daysUntilSell = maxDays - diffDays;
-            if (newTrades[i].daysUntilSell < 0) {
-              newTrades[i].daysUntilSell = -1;
-              const buyIndex = closingPrices.findIndex(
-                (p) => p.date === newTrades[i].buyDate
+        if (historicalTrade) {
+          // 매도 정보 처리
+          for (let i = index + 1; i < closingPrices.length; i++) {
+            const futurePrice = parseFloat(closingPrices[i].price);
+            if (
+              futurePrice >= historicalTrade.targetSellPrice &&
+              historicalTrade.quantity > 0
+            ) {
+              historicalTrade.sellDate = closingPrices[i].date;
+              historicalTrade.actualSellPrice = futurePrice;
+              historicalTrade.sellQuantity = historicalTrade.quantity;
+              historicalTrade.profit =
+                (futurePrice - historicalTrade.actualBuyPrice) *
+                historicalTrade.quantity;
+              historicalTrade.sellDate = adjustSellDate(
+                historicalTrade.sellDate!
               );
-              const expirationIndex = buyIndex + maxDays;
-              if (expirationIndex < closingPrices.length) {
-                const autoSellPrice = parseFloat(
-                  closingPrices[expirationIndex].price
+              dailyProfitMap[historicalTrade.sellDate] = dailyProfitMap[
+                historicalTrade.sellDate
+              ] || {
+                totalProfit: 0,
+                tradeIndex: 0,
+              };
+              dailyProfitMap[historicalTrade.sellDate].totalProfit +=
+                historicalTrade.profit || 0;
+              dailyProfitMap[historicalTrade.sellDate].tradeIndex =
+                historicalTrade.tradeIndex;
+              break;
+            }
+          }
+          historicalTrade.dailyProfit =
+            dailyProfitMap[historicalTrade.buyDate]?.totalProfit || 0;
+
+          // 기존 거래들의 남은 날짜 업데이트
+          for (let i = 0; i < newTrades.length; i++) {
+            if (!newTrades[i].sellDate) {
+              const diffDays = Math.floor(
+                (new Date(buyDateStr).getTime() -
+                  new Date(newTrades[i].buyDate).getTime()) /
+                  (1000 * 60 * 60 * 24)
+              );
+              const maxDays =
+                newTrades[i].mode === "safe"
+                  ? settings.safeMaxDays
+                  : settings.aggressiveMaxDays;
+              newTrades[i].daysUntilSell = maxDays - diffDays;
+              if (newTrades[i].daysUntilSell < 0) {
+                newTrades[i].daysUntilSell = -1;
+                const buyIndex = closingPrices.findIndex(
+                  (p) => p.date === newTrades[i].buyDate
                 );
-                newTrades[i].sellDate = closingPrices[expirationIndex].date;
-                newTrades[i].actualSellPrice = autoSellPrice;
-                newTrades[i].sellQuantity = newTrades[i].quantity;
-                newTrades[i].profit =
-                  (autoSellPrice - newTrades[i].actualBuyPrice) *
-                  newTrades[i].quantity;
-                dailyProfitMap[newTrades[i].sellDate!] = dailyProfitMap[
-                  newTrades[i].sellDate!
-                ] || { totalProfit: 0, tradeIndex: 0 };
-                dailyProfitMap[newTrades[i].sellDate!].totalProfit +=
-                  newTrades[i].profit || 0;
+                const expirationIndex = buyIndex + maxDays;
+                if (expirationIndex < closingPrices.length) {
+                  const autoSellPrice = parseFloat(
+                    closingPrices[expirationIndex].price
+                  );
+                  newTrades[i].sellDate = closingPrices[expirationIndex].date;
+                  newTrades[i].actualSellPrice = autoSellPrice;
+                  newTrades[i].sellQuantity = newTrades[i].quantity;
+                  newTrades[i].profit =
+                    (autoSellPrice - newTrades[i].actualBuyPrice) *
+                    newTrades[i].quantity;
+                  dailyProfitMap[newTrades[i].sellDate!] = dailyProfitMap[
+                    newTrades[i].sellDate!
+                  ] || { totalProfit: 0, tradeIndex: 0 };
+                  dailyProfitMap[newTrades[i].sellDate!].totalProfit +=
+                    newTrades[i].profit || 0;
+                }
               }
             }
           }
-        }
 
-        newTrades.push(trade);
-        tradeIndex++;
-        blockCount++;
+          newTrades.push(historicalTrade);
+          tradeIndex++;
+          blockCount++;
 
-        console.log(
-          `거래 추가 후 blockCount: ${blockCount}, 날짜: ${buyDateStr}`
-        );
-        if (blockCount === 10) {
-          console.log(`10거래일 완료, 시드 업데이트 실행: ${buyDateStr}`);
-          currentSeed = await updateSeedForTrades(
-            newTrades,
-            currentSeed,
-            trade.buyDate
+          console.log(
+            `거래 추가 후 blockCount: ${blockCount}, 날짜: ${buyDateStr}`
           );
-          blockCount = 0;
+          if (blockCount === 10) {
+            console.log(`10거래일 완료, 시드 업데이트 실행: ${buyDateStr}`);
+            currentSeed = await updateSeedForTrades(
+              newTrades,
+              currentSeed,
+              historicalTrade.buyDate
+            );
+            blockCount = 0;
+          }
         }
       }
 
@@ -672,7 +679,6 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         setTrades(newTrades);
         onTradesUpdate?.(newTrades);
       }
-
       const todayStr = new Date().toISOString().split("T")[0];
       const lastTradeSale =
         newTrades
@@ -993,7 +999,6 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
       console.error("updatedSeed 초기화 중 예외 발생:", error);
     }
   };
-
   useEffect(() => {
     // 컴포넌트 마운트 시 updatedSeed 필드 초기화 확인
     initializeUpdatedSeedIfNeeded();
