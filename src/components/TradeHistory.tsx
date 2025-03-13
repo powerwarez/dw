@@ -154,7 +154,89 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
 
       if (initialTrades && initialTrades.length > 0) {
         console.log("DB에 존재하는 Trade 내역을 사용합니다.");
-        newTrades = [...initialTrades];
+
+        // 중복 트레이드 제거 로직 추가
+        const uniqueTrades: Trade[] = [];
+        const tradeDateMap: Record<string, Trade[]> = {};
+
+        // 날짜별로 트레이드 그룹화
+        initialTrades.forEach((trade) => {
+          if (!tradeDateMap[trade.buyDate]) {
+            tradeDateMap[trade.buyDate] = [];
+          }
+          tradeDateMap[trade.buyDate].push(trade);
+        });
+
+        // 각 날짜에 대해 중복 트레이드 처리
+        Object.entries(tradeDateMap).forEach(([date, trades]) => {
+          if (trades.length > 1) {
+            console.log(
+              `중복 감지: ${date}에 ${trades.length}개의 트레이드가 있습니다. 중복 제거를 시도합니다.`
+            );
+
+            // 유효한 트레이드 선택 (수량이 0이 아닌 트레이드 우선)
+            const validTrades = trades.filter((t) => t.quantity > 0);
+            if (validTrades.length > 0) {
+              // 수량이 있는 트레이드 중 가장 높은 인덱스를 가진 것 선택
+              const selectedTrade = validTrades.reduce((prev, current) =>
+                prev.tradeIndex > current.tradeIndex ? prev : current
+              );
+              console.log(
+                `${date}에 대해 선택된 트레이드: 인덱스=${selectedTrade.tradeIndex}, 모드=${selectedTrade.mode}, 수량=${selectedTrade.quantity}`
+              );
+              uniqueTrades.push(selectedTrade);
+            } else {
+              // 모든 트레이드의 수량이 0인 경우, 가장 높은 인덱스를 가진 것 선택
+              const selectedTrade = trades.reduce((prev, current) =>
+                prev.tradeIndex > current.tradeIndex ? prev : current
+              );
+              console.log(
+                `${date}에 대해 선택된 트레이드(모두 수량 0): 인덱스=${selectedTrade.tradeIndex}`
+              );
+              uniqueTrades.push(selectedTrade);
+            }
+          } else {
+            // 중복이 없는 경우 그대로 추가
+            uniqueTrades.push(trades[0]);
+          }
+        });
+
+        // 중복 제거 결과 로깅
+        console.log(
+          `중복 제거 전 트레이드 수: ${initialTrades.length}, 중복 제거 후: ${uniqueTrades.length}`
+        );
+
+        // 중복이 제거된 트레이드로 업데이트
+        if (initialTrades.length !== uniqueTrades.length) {
+          console.log(
+            "중복 트레이드가 감지되어 제거되었습니다. DB를 업데이트합니다."
+          );
+
+          // 정렬된 트레이드 배열 생성
+          const sortedUniqueTrades = [...uniqueTrades].sort(
+            (a, b) =>
+              new Date(a.buyDate).getTime() - new Date(b.buyDate).getTime()
+          );
+
+          // DB 업데이트
+          try {
+            await supabase.from("dynamicwave").upsert({
+              user_id: userId,
+              settings: { ...settings },
+              tradehistory: sortedUniqueTrades,
+              manualFixInfo,
+            });
+            console.log("중복 제거된 트레이드로 DB 업데이트 완료");
+
+            // 중복 제거된 트레이드 사용
+            newTrades = sortedUniqueTrades;
+          } catch (error) {
+            console.error("중복 제거 후 DB 업데이트 실패:", error);
+            newTrades = [...initialTrades]; // 실패 시 원래 트레이드 사용
+          }
+        } else {
+          newTrades = [...initialTrades];
+        }
 
         // 남은 날짜가 0이거나 -1인 거래 처리
         const updatedTrades = newTrades.map((trade) => {
@@ -637,6 +719,11 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                 }, 매수가=${trade.actualBuyPrice}, 수량=${trade.quantity}`
               );
             });
+
+            // 중복 트레이드 발견 시 자동 수정 시도
+            console.log(
+              `중복 트레이드 발견: ${date}. 다음 새로고침 시 자동으로 수정됩니다.`
+            );
           }
         });
 
