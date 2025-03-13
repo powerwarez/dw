@@ -346,8 +346,13 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
 
       // 오늘 날짜의 트레이드가 없고, 종가 데이터가 있으면 새 트레이드 생성
       if (!existingCurrentDateTrade && currentDateClosingData) {
+        // 요일 확인
+        const dayOfWeek = currentDate.getDay();
+        const dayNames = ["일", "월", "화", "수", "목", "금", "토"];
+        const dayName = dayNames[dayOfWeek];
+
         console.log(
-          `오늘(${currentDateStr}) 트레이드가 없고 종가 데이터가 있어 새 트레이드를 생성합니다.`
+          `오늘(${currentDateStr}, ${dayName}) 트레이드가 없고 종가 데이터가 있어 새 트레이드를 생성합니다.`
         );
 
         const currentPrice = parseFloat(currentDateClosingData.price);
@@ -426,8 +431,10 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
 
         const buyDateStr = rawBuyDateObj.toISOString().split("T")[0];
 
-        // 금요일인지 확인
-        const isWeekend = rawBuyDateObj.getDay() === 5; // 5는 금요일
+        // 요일 확인 (0: 일요일, 1: 월요일, ..., 6: 토요일)
+        const dayOfWeek = rawBuyDateObj.getDay();
+        const dayNames = ["일", "월", "화", "수", "목", "금", "토"];
+        const dayName = dayNames[dayOfWeek];
 
         // 해당 날짜의 모든 기존 트레이드 찾기
         const existingTrades = newTrades.filter(
@@ -437,22 +444,27 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         // 이미 해당 날짜에 트레이드가 있으면 스킵
         if (existingTrades.length > 0) {
           console.log(
-            `${buyDateStr}에 이미 ${existingTrades.length}개의 트레이드가 존재합니다. 스킵합니다.`
+            `${buyDateStr}(${dayName})에 이미 ${existingTrades.length}개의 트레이드가 존재합니다. 스킵합니다.`
           );
-          if (isWeekend) {
+
+          // 중복 트레이드 상세 정보 로깅
+          existingTrades.forEach((trade, idx) => {
             console.log(
-              `${buyDateStr}는 금요일입니다. 중복 생성 방지를 위해 추가 검증을 수행합니다.`
+              `  - 기존 트레이드 #${idx + 1}: 인덱스=${
+                trade.tradeIndex
+              }, 모드=${trade.mode}, 매수가=${trade.actualBuyPrice}, 수량=${
+                trade.quantity
+              }`
             );
-          }
+          });
+
           continue;
         }
 
-        // 금요일인 경우 추가 로깅
-        if (isWeekend) {
-          console.log(
-            `${buyDateStr}는 금요일입니다. 새로운 트레이드를 생성합니다.`
-          );
-        }
+        // 새 트레이드 생성 로깅
+        console.log(
+          `${buyDateStr}(${dayName})에 새로운 트레이드를 생성합니다.`
+        );
 
         const mode =
           sortedModes.length > 0
@@ -597,6 +609,36 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
       const processExistingTrades = () => {
         // 오늘 날짜
         const today = new Date();
+
+        // 요일 이름 배열 정의
+        const dayNames = ["일", "월", "화", "수", "목", "금", "토"];
+
+        // 중복 트레이드 검사
+        const tradesGroupedByDate = newTrades.reduce((acc, trade) => {
+          if (!acc[trade.buyDate]) {
+            acc[trade.buyDate] = [];
+          }
+          acc[trade.buyDate].push(trade);
+          return acc;
+        }, {} as Record<string, Trade[]>);
+
+        // 중복 트레이드가 있는 날짜 확인
+        Object.entries(tradesGroupedByDate).forEach(([date, trades]) => {
+          if (trades.length > 1) {
+            const dateObj = new Date(date);
+            const dayName = dayNames[dateObj.getDay()];
+            console.log(
+              `경고: ${date}(${dayName})에 ${trades.length}개의 트레이드가 존재합니다.`
+            );
+            trades.forEach((trade, idx) => {
+              console.log(
+                `  - 트레이드 #${idx + 1}: 인덱스=${trade.tradeIndex}, 모드=${
+                  trade.mode
+                }, 매수가=${trade.actualBuyPrice}, 수량=${trade.quantity}`
+              );
+            });
+          }
+        });
 
         // 기존 트레이드 순회하며 남은 날짜 업데이트
         for (let i = 0; i < newTrades.length; i++) {
