@@ -224,19 +224,17 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         blockCount = newTrades.length % 10;
         console.log("기존 거래 내역 기준 blockCount:", blockCount);
 
-        // 마지막 시드 업데이트 이후의 거래 내역을 기준으로 currentSeed 설정
+        // 마지막 시드 업데이트 이후의 거래 내역을 기준으로 blockCount 설정
         if (latestUpdatedSeedDate) {
-          const latestSeedUpdateIndex = newTrades.findIndex(
-            (trade) => trade.buyDate === latestUpdatedSeedDate
+          // 마지막 시드 업데이트 날짜 이후의 거래 수 계산
+          const tradesAfterLastUpdate = newTrades.filter(
+            (trade) => new Date(trade.buyDate) > new Date(latestUpdatedSeedDate)
           );
-          if (
-            latestSeedUpdateIndex !== -1 &&
-            latestSeedUpdateIndex < newTrades.length - 1
-          ) {
-            // 마지막 시드 업데이트 이후의 거래만 고려하여 blockCount 재계산
-            blockCount = (newTrades.length - (latestSeedUpdateIndex + 1)) % 10;
-            console.log("마지막 시드 업데이트 이후 blockCount:", blockCount);
-          }
+
+          blockCount = tradesAfterLastUpdate.length % 10;
+          console.log(
+            `마지막 시드 업데이트(${latestUpdatedSeedDate}) 이후 거래 수: ${tradesAfterLastUpdate.length}, blockCount: ${blockCount}`
+          );
         }
 
         setTrades(initialTrades);
@@ -329,6 +327,95 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
           } else {
             console.warn("어제 종가가 존재하지 않습니다.");
           }
+        }
+      }
+
+      // 오늘 날짜 계산
+      const currentDate = new Date();
+      const currentDateStr = currentDate.toISOString().split("T")[0];
+
+      // 오늘 날짜의 트레이드가 이미 있는지 확인
+      const existingCurrentDateTrade = newTrades.find(
+        (trade) => trade.buyDate === currentDateStr
+      );
+
+      // 오늘 날짜의 종가 데이터가 있는지 확인
+      const currentDateClosingData = closingPrices.find(
+        (price) => price.date === currentDateStr
+      );
+
+      // 오늘 날짜의 트레이드가 없고, 종가 데이터가 있으면 새 트레이드 생성
+      if (!existingCurrentDateTrade && currentDateClosingData) {
+        console.log(
+          `오늘(${currentDateStr}) 트레이드가 없고 종가 데이터가 있어 새 트레이드를 생성합니다.`
+        );
+
+        const currentPrice = parseFloat(currentDateClosingData.price);
+        const mode =
+          sortedModes.length > 0
+            ? findModeForDateNoWait(currentDateStr, sortedModes)
+            : "safe";
+        const buyPercent =
+          mode === "safe"
+            ? settings.safeBuyPercent
+            : settings.aggressiveBuyPercent;
+        const sellPercent =
+          mode === "safe"
+            ? settings.safeSellPercent
+            : settings.aggressiveSellPercent;
+        const daysUntilSell =
+          mode === "safe" ? settings.safeMaxDays : settings.aggressiveMaxDays;
+
+        // 이전 날짜의 종가 찾기
+        const previousDayIndex =
+          closingPrices.findIndex((price) => price.date === currentDateStr) - 1;
+        const previousClosePrice =
+          previousDayIndex >= 0
+            ? parseFloat(closingPrices[previousDayIndex].price)
+            : currentPrice;
+
+        const targetBuyPrice = previousClosePrice * (1 + buyPercent / 100);
+        const actualBuyPrice =
+          currentPrice <= targetBuyPrice ? currentPrice : 0;
+        const quantity = actualBuyPrice
+          ? Math.floor(
+              currentSeed / (settings.seedDivision || 1) / targetBuyPrice
+            )
+          : 0;
+        const targetSellPrice = actualBuyPrice * (1 + sellPercent / 100);
+        const withdrawalFromManualFix =
+          manualFixInfo[currentDateStr] ?? settings.withdrawalAmount;
+
+        const newCurrentDateTrade: Trade = {
+          tradeIndex,
+          buyDate: currentDateStr,
+          mode,
+          targetBuyPrice,
+          actualBuyPrice,
+          quantity,
+          targetSellPrice,
+          daysUntilSell,
+          seedForDay: currentSeed,
+          dailyProfit: 0,
+          withdrawalAmount: withdrawalFromManualFix,
+          actualwithdrawalAmount: withdrawalFromManualFix,
+        };
+
+        console.log("생성된 오늘 트레이드:", newCurrentDateTrade);
+        newTrades.push(newCurrentDateTrade);
+        blockCount++;
+
+        // 블록 카운트가 10이 되면 시드 업데이트
+        if (blockCount === 10) {
+          console.log(
+            `오늘 거래 추가 후 blockCount가 10이 되어 시드 업데이트 실행 (${currentDateStr})`
+          );
+          currentSeed = await updateSeedForTrades(
+            newTrades,
+            currentSeed,
+            newCurrentDateTrade.buyDate
+          );
+          blockCount = 0;
         }
       }
 
