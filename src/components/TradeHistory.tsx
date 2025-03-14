@@ -463,26 +463,43 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
               newTrades.push(newYesterdayTrade);
               setTrades(newTrades);
               onTradesUpdate?.(newTrades);
-              await supabase.from("dynamicwave").upsert({
-                user_id: userId,
-                settings: { ...settings },
-                tradehistory: newTrades,
-                manualFixInfo,
-              });
-              tradeIndex++;
-              blockCount++;
-
+              
               // 블록 카운트가 10이 되면 시드 업데이트
+              blockCount++;
+              console.log(`어제 거래 추가 후 blockCount: ${blockCount}`);
+              
               if (blockCount === 10) {
                 console.log(
                   "어제 거래 추가 후 blockCount가 10이 되어 시드 업데이트 실행"
                 );
-                currentSeed = await updateSeedForTrades(
-                  newTrades,
-                  currentSeed,
-                  newYesterdayTrade.buyDate
-                );
-                blockCount = 0;
+                try {
+                  // 시드 업데이트 실행
+                  currentSeed = await updateSeedForTrades(
+                    newTrades,
+                    currentSeed,
+                    newYesterdayTrade.buyDate
+                  );
+                  blockCount = 0;
+                  
+                  // 시드 업데이트 후 DB에 저장
+                  await supabase.from("dynamicwave").upsert({
+                    user_id: userId,
+                    settings: { ...settings, currentInvestment: currentSeed },
+                    tradehistory: newTrades,
+                    manualFixInfo,
+                  });
+                  console.log(`어제 날짜(${yesterdayStr}) 시드 업데이트 완료: ${currentSeed}`);
+                } catch (error) {
+                  console.error(`어제 날짜 시드 업데이트 오류:`, error);
+                }
+              } else {
+                // 시드 업데이트가 필요하지 않은 경우에도 DB에 저장
+                await supabase.from("dynamicwave").upsert({
+                  user_id: userId,
+                  settings: { ...settings },
+                  tradehistory: newTrades,
+                  manualFixInfo,
+                });
               }
             } else if (newYesterdayTrade) {
               // 이미 어제 날짜의 거래가 있으면 업데이트만 수행
@@ -533,12 +550,34 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
             console.log(
               `오늘 거래 추가 후 blockCount가 10이 되어 시드 업데이트 실행 (${currentDateStr})`
             );
-            currentSeed = await updateSeedForTrades(
-              newTrades,
-              currentSeed,
-              todayTrade.buyDate
-            );
-            blockCount = 0;
+            try {
+              // 시드 업데이트 실행
+              currentSeed = await updateSeedForTrades(
+                newTrades,
+                currentSeed,
+                todayTrade.buyDate
+              );
+              blockCount = 0;
+              
+              // 시드 업데이트 후 DB에 저장
+              await supabase.from("dynamicwave").upsert({
+                user_id: userId,
+                settings: { ...settings, currentInvestment: currentSeed },
+                tradehistory: newTrades,
+                manualFixInfo,
+              });
+              console.log(`오늘 날짜(${currentDateStr}) 시드 업데이트 완료: ${currentSeed}`);
+            } catch (error) {
+              console.error(`오늘 날짜 시드 업데이트 오류:`, error);
+            }
+          } else {
+            // 시드 업데이트가 필요하지 않은 경우에도 DB에 저장
+            await supabase.from("dynamicwave").upsert({
+              user_id: userId,
+              settings: { ...settings },
+              tradehistory: newTrades,
+              manualFixInfo,
+            });
           }
         }
       } else if (existingCurrentDateTrades.length > 0) {
@@ -665,12 +704,38 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
           );
           if (blockCount === 10) {
             console.log(`10거래일 완료, 시드 업데이트 실행: ${buyDateStr}`);
-            currentSeed = await updateSeedForTrades(
-              newTrades,
-              currentSeed,
-              historicalTrade.buyDate
-            );
-            blockCount = 0;
+            // 과거 날짜 트레이드 생성 시 시드 업데이트는 수행하되, 출금액 수정 모달은 표시하지 않음
+            try {
+              currentSeed = await updateSeedForTrades(
+                newTrades,
+                currentSeed,
+                historicalTrade.buyDate
+              );
+              blockCount = 0;
+              
+              // 시드 업데이트 후 DB에 저장
+              await supabase.from("dynamicwave").upsert({
+                user_id: userId,
+                settings: { ...settings, currentInvestment: currentSeed },
+                tradehistory: newTrades,
+                manualFixInfo,
+              });
+              console.log(`과거 날짜(${buyDateStr}) 시드 업데이트 완료: ${currentSeed}`);
+            } catch (error) {
+              console.error(`과거 날짜 시드 업데이트 오류:`, error);
+            }
+          } else {
+            // 시드 업데이트가 필요하지 않은 경우에도 DB에 저장
+            try {
+              await supabase.from("dynamicwave").upsert({
+                user_id: userId,
+                settings: { ...settings },
+                tradehistory: newTrades,
+                manualFixInfo,
+              });
+            } catch (error) {
+              console.error(`과거 날짜 트레이드 저장 오류:`, error);
+            }
           }
         }
       }
@@ -924,19 +989,17 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         `시드 업데이트 완료 - 날짜: ${recordDate}, 값: ${calculatedSeed}, 기록 개수: ${updatedSeedRecords.length}`
       );
 
-      // 상태 업데이트
+      // 상태 업데이트 - 즉시 반영
       setLatestUpdatedSeedDate(recordDate);
 
-      // seedUpdateDates 상태 업데이트
-      setSeedUpdateDates((prev) => {
-        const newDates = [...prev];
-        if (!newDates.includes(recordDate)) {
-          newDates.push(recordDate);
-          // 날짜순 정렬
-          newDates.sort((a, b) => a.localeCompare(b));
-        }
-        return newDates;
-      });
+      // seedUpdateDates 상태 업데이트 - 즉시 반영
+      const newSeedUpdateDates = [...seedUpdateDates];
+      if (!newSeedUpdateDates.includes(recordDate)) {
+        newSeedUpdateDates.push(recordDate);
+        // 날짜순 정렬
+        newSeedUpdateDates.sort((a, b) => a.localeCompare(b));
+        setSeedUpdateDates(newSeedUpdateDates);
+      }
 
       onSeedUpdate?.(calculatedSeed);
 
@@ -955,8 +1018,25 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     console.log(
       `updateSeedForTrades 호출 - 날짜: ${tradeDate}, 현재 시드: ${currentSeed}`
     );
+    
+    // 현재 날짜와 트레이드 날짜 비교
+    const today = new Date();
+    const tradeDateObj = new Date(tradeDate);
+    const diffDays = Math.floor(
+      (today.getTime() - tradeDateObj.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    
+    // 과거 날짜(7일 이상 지난 날짜)의 트레이드인 경우 로그 출력
+    if (diffDays > 7) {
+      console.log(`${tradeDate}는 7일 이상 지난 과거 날짜입니다. 시드 업데이트만 수행하고 출금액 수정 모달은 표시하지 않습니다.`);
+    }
+    
     const newSeed = computeUpdatedSeed(trades, currentSeed);
     const updatedSeed = await checkAndUpdateSeed(newSeed, trades, tradeDate);
+    
+    // 시드 업데이트 후 latestUpdatedSeedDate 상태 업데이트
+    setLatestUpdatedSeedDate(tradeDate);
+    
     return updatedSeed;
   };
 
@@ -1239,7 +1319,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                   trade.buyDate
                 );
                 // 마지막 시드 업데이트 이후의 거래인지 확인
-                const isAfterLastSeedUpdate =
+                const isAfterLastUpdate =
                   latestUpdatedSeedDate &&
                   new Date(trade.buyDate) > new Date(latestUpdatedSeedDate);
 
@@ -1324,25 +1404,42 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                     </td>
                     <td className="text-center">
                       {trade.buyDate ? (
-                        isAfterLastSeedUpdate ? (
-                          // 1. 마지막 시드 업데이트 이후의 거래일: 빨간색 + 클릭 가능 (수정 가능)
-                          <span
-                            className="cursor-pointer text-red-500"
-                            onClick={() => openWithdrawalModal(index)}
-                          >
-                            {trade.manualFixedWithdrawal !== undefined
-                              ? trade.manualFixedWithdrawal
-                              : `${trade.withdrawalAmount || 0}(예정)`}
-                          </span>
-                        ) : isSeedUpdateDate ? (
-                          // 2. 시드 업데이트가 발생한 날짜: 빨간색 (수정 불가)
-                          <span className="text-red-500">
-                            {trade.actualwithdrawalAmount ?? 0}
-                          </span>
-                        ) : (
-                          // 3. 그 외 모든 날짜: 흰색 (수정 불가)
-                          <span>{trade.actualwithdrawalAmount ?? 0}</span>
-                        )
+                        (() => {
+                          // 현재 날짜와 트레이드 날짜 비교
+                          const today = new Date();
+                          const tradeDate = new Date(trade.buyDate);
+                          const diffDays = Math.floor(
+                            (today.getTime() - tradeDate.getTime()) / (1000 * 60 * 60 * 24)
+                          );
+                          
+                          // 7일 이내의 최근 거래이고 마지막 시드 업데이트 이후의 거래인 경우에만 클릭 가능
+                          const isRecentTrade = diffDays <= 7;
+                          const isEditable = isAfterLastUpdate && isRecentTrade;
+                          
+                          if (isEditable) {
+                            // 1. 마지막 시드 업데이트 이후의 최근 거래일: 빨간색 + 클릭 가능 (수정 가능)
+                            return (
+                              <span
+                                className="cursor-pointer text-red-500"
+                                onClick={() => openWithdrawalModal(index)}
+                              >
+                                {trade.manualFixedWithdrawal !== undefined
+                                  ? trade.manualFixedWithdrawal
+                                  : `${trade.withdrawalAmount || 0}(예정)`}
+                              </span>
+                            );
+                          } else if (isSeedUpdateDate) {
+                            // 2. 시드 업데이트가 발생한 날짜: 빨간색 (수정 불가)
+                            return (
+                              <span className="text-red-500">
+                                {trade.actualwithdrawalAmount ?? 0}
+                              </span>
+                            );
+                          } else {
+                            // 3. 그 외 모든 날짜: 흰색 (수정 불가)
+                            return <span>{trade.actualwithdrawalAmount ?? 0}</span>;
+                          }
+                        })()
                       ) : (
                         <span>-</span>
                       )}
