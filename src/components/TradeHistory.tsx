@@ -226,6 +226,26 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
       manualFixInfo[date] ?? settings.withdrawalAmount;
     console.log(`${date} 날짜의 출금액: ${withdrawalFromManualFix} (수동 설정: ${manualFixInfo[date] !== undefined}, 기본값: ${settings.withdrawalAmount})`);
 
+    // 해당 날짜에 매도된 다른 트레이드들의 수익 합계 계산
+    const tradesWithSellDateMatchingBuyDate = existingTrades.filter(
+      (trade) => trade.sellDate === date && trade.profit !== undefined
+    );
+    
+    let dailyProfitFromSells = 0;
+    if (tradesWithSellDateMatchingBuyDate.length > 0) {
+      dailyProfitFromSells = tradesWithSellDateMatchingBuyDate.reduce(
+        (sum, trade) => sum + (trade.profit || 0),
+        0
+      );
+      console.log(`${date} 날짜에 매도된 다른 트레이드들의 수익 합계: ${dailyProfitFromSells} (${tradesWithSellDateMatchingBuyDate.length}개 트레이드)`);
+      console.log(`매도된 트레이드 목록:`, tradesWithSellDateMatchingBuyDate.map(t => ({ 
+        tradeIndex: t.tradeIndex, 
+        buyDate: t.buyDate, 
+        sellDate: t.sellDate, 
+        profit: t.profit 
+      })));
+    }
+
     // 새 거래 생성
     const newTrade: Trade = {
       tradeIndex,
@@ -237,7 +257,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
       targetSellPrice,
       daysUntilSell,
       seedForDay: currentSeed,
-      dailyProfit: 0,
+      dailyProfit: dailyProfitFromSells, // 해당 날짜에 매도된 다른 트레이드들의 수익 합계로 초기화
       withdrawalAmount: withdrawalFromManualFix,
       actualwithdrawalAmount: withdrawalFromManualFix,
     };
@@ -486,6 +506,30 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
               !newTrades.some((t) => t.buyDate === yesterdayStr)
             ) {
               console.log("생성된 어제 트레이드:", newYesterdayTrade);
+              
+              // 어제 날짜에 매도된 다른 트레이드들의 수익 합계 계산
+              const tradesWithSellDateMatchingYesterday = newTrades.filter(
+                (trade) => trade.sellDate === yesterdayStr && trade.profit !== undefined
+              );
+              
+              if (tradesWithSellDateMatchingYesterday.length > 0) {
+                const profitFromSells = tradesWithSellDateMatchingYesterday.reduce(
+                  (sum, trade) => sum + (trade.profit || 0),
+                  0
+                );
+                console.log(`어제(${yesterdayStr}) 날짜에 매도된 다른 트레이드들의 수익 합계: ${profitFromSells} (${tradesWithSellDateMatchingYesterday.length}개 트레이드)`);
+                console.log(`매도된 트레이드 목록:`, tradesWithSellDateMatchingYesterday.map(t => ({ 
+                  tradeIndex: t.tradeIndex, 
+                  buyDate: t.buyDate, 
+                  sellDate: t.sellDate, 
+                  profit: t.profit 
+                })));
+                
+                // 기존 일일 수익에 매도 수익 추가
+                newYesterdayTrade.dailyProfit = (newYesterdayTrade.dailyProfit || 0) + profitFromSells;
+                console.log(`어제 트레이드의 최종 일일 수익 (매도 수익 포함): ${newYesterdayTrade.dailyProfit}`);
+              }
+              
               onUpdateYesterdaySell?.(newYesterdayTrade);
               newTrades.push(newYesterdayTrade);
               setTrades(newTrades);
@@ -584,6 +628,30 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
 
         if (todayTrade) {
           console.log("새 오늘 트레이드 생성:", todayTrade);
+          
+          // 오늘 날짜에 매도된 다른 트레이드들의 수익 합계 계산
+          const tradesWithSellDateMatchingToday = newTrades.filter(
+            (trade) => trade.sellDate === currentDateStr && trade.profit !== undefined
+          );
+          
+          if (tradesWithSellDateMatchingToday.length > 0) {
+            const profitFromSells = tradesWithSellDateMatchingToday.reduce(
+              (sum, trade) => sum + (trade.profit || 0),
+              0
+            );
+            console.log(`오늘(${currentDateStr}) 날짜에 매도된 다른 트레이드들의 수익 합계: ${profitFromSells} (${tradesWithSellDateMatchingToday.length}개 트레이드)`);
+            console.log(`매도된 트레이드 목록:`, tradesWithSellDateMatchingToday.map(t => ({ 
+              tradeIndex: t.tradeIndex, 
+              buyDate: t.buyDate, 
+              sellDate: t.sellDate, 
+              profit: t.profit 
+            })));
+            
+            // 기존 일일 수익에 매도 수익 추가
+            todayTrade.dailyProfit = (todayTrade.dailyProfit || 0) + profitFromSells;
+            console.log(`오늘 트레이드의 최종 일일 수익 (매도 수익 포함): ${todayTrade.dailyProfit}`);
+          }
+          
           newTrades.push(todayTrade);
           tradeIndex++;
           blockCount++;
@@ -715,6 +783,29 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
           historicalTrade.dailyProfit =
             dailyProfitMap[historicalTrade.buyDate]?.totalProfit || 0;
           console.log(`${buyDateStr} 거래의 일일 수익 설정: ${historicalTrade.dailyProfit}`);
+
+          // 해당 날짜에 매도된 다른 트레이드들의 수익 합계 계산
+          const tradesWithSellDateMatchingBuyDate = newTrades.filter(
+            (trade) => trade.sellDate === buyDateStr && trade.profit !== undefined
+          );
+          
+          if (tradesWithSellDateMatchingBuyDate.length > 0) {
+            const profitFromSells = tradesWithSellDateMatchingBuyDate.reduce(
+              (sum, trade) => sum + (trade.profit || 0),
+              0
+            );
+            console.log(`${buyDateStr} 날짜에 매도된 다른 트레이드들의 수익 합계: ${profitFromSells} (${tradesWithSellDateMatchingBuyDate.length}개 트레이드)`);
+            console.log(`매도된 트레이드 목록:`, tradesWithSellDateMatchingBuyDate.map(t => ({ 
+              tradeIndex: t.tradeIndex, 
+              buyDate: t.buyDate, 
+              sellDate: t.sellDate, 
+              profit: t.profit 
+            })));
+            
+            // 기존 일일 수익에 매도 수익 추가
+            historicalTrade.dailyProfit += profitFromSells;
+            console.log(`${buyDateStr} 거래의 최종 일일 수익 (매도 수익 포함): ${historicalTrade.dailyProfit}`);
+          }
 
           // 기존 거래들의 남은 날짜 업데이트
           for (let i = 0; i < newTrades.length; i++) {
@@ -1211,15 +1302,53 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     const newTrades = [...trades];
 
     if (modalSellPrice !== undefined && modalSellQuantity !== undefined) {
+      // 이전 매도 정보 저장
+      const previousSellDate = trades[index].sellDate;
+      const previousProfit = trades[index].profit || 0;
+      
+      // 새로운 수익 계산
       updatedTrade.profit =
         (modalSellPrice - updatedTrade.actualBuyPrice) * modalSellQuantity;
+      
+      console.log(`매도 정보 수정 - 트레이드 #${updatedTrade.tradeIndex}, 이전 매도일: ${previousSellDate}, 새 매도일: ${modalSellDate}`);
+      console.log(`이전 수익: ${previousProfit}, 새 수익: ${updatedTrade.profit}`);
+      
+      // 이전 매도일이 있고, 변경된 경우 이전 매도일의 일일 수익에서 이전 수익 제거
+      if (previousSellDate && previousSellDate !== modalSellDate) {
+        const previousDailyTradeIndex = newTrades.findIndex(
+          (t) => t.buyDate === previousSellDate
+        );
+        
+        if (previousDailyTradeIndex !== -1) {
+          const previousDailyTrade = newTrades[previousDailyTradeIndex];
+          const updatedDailyProfit = (previousDailyTrade.dailyProfit || 0) - previousProfit;
+          
+          newTrades[previousDailyTradeIndex] = {
+            ...previousDailyTrade,
+            dailyProfit: updatedDailyProfit
+          };
+          
+          console.log(`이전 매도일(${previousSellDate})의 일일 수익 업데이트: ${previousDailyTrade.dailyProfit} -> ${updatedDailyProfit}`);
+        }
+      }
+      
+      // 새 매도일의 일일 수익에 새 수익 추가
       const dailyTradeIndex = newTrades.findIndex(
         (t) => t.buyDate === modalSellDate
       );
+      
       if (dailyTradeIndex !== -1) {
-        newTrades[dailyTradeIndex].dailyProfit =
-          (newTrades[dailyTradeIndex].dailyProfit || 0) + updatedTrade.profit;
+        const dailyTrade = newTrades[dailyTradeIndex];
+        const updatedDailyProfit = (dailyTrade.dailyProfit || 0) + updatedTrade.profit;
+        
+        newTrades[dailyTradeIndex] = {
+          ...dailyTrade,
+          dailyProfit: updatedDailyProfit
+        };
+        
+        console.log(`새 매도일(${modalSellDate})의 일일 수익 업데이트: ${dailyTrade.dailyProfit} -> ${updatedDailyProfit}`);
       } else {
+        console.log(`새 매도일(${modalSellDate})에 해당하는 트레이드가 없습니다. 일일 수익 업데이트 불가.`);
         updatedTrade.dailyProfit = updatedTrade.profit;
       }
     }
