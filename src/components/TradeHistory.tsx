@@ -788,6 +788,12 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                   "어제 거래 추가 후 blockCount가 10이 되어 시드 업데이트 실행"
                 );
                 try {
+                  // 먼저 모든 트레이드의 dailyProfit 업데이트
+                  console.log(
+                    "시드 업데이트 전 모든 트레이드의 dailyProfit 업데이트"
+                  );
+                  updateDailyProfitsForAllTrades(newTrades);
+
                   // 시드 업데이트 실행
                   console.log(`시드 업데이트 전 현재 시드: ${currentSeed}`);
                   console.log(
@@ -983,6 +989,12 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
               `오늘 거래 추가 후 blockCount가 10이 되어 시드 업데이트 실행 (${currentDateStr})`
             );
             try {
+              // 먼저 모든 트레이드의 dailyProfit 업데이트
+              console.log(
+                "시드 업데이트 전 모든 트레이드의 dailyProfit 업데이트"
+              );
+              updateDailyProfitsForAllTrades(newTrades);
+
               // 시드 업데이트 실행
               console.log(`시드 업데이트 전 현재 시드: ${currentSeed}`);
               console.log(
@@ -1227,6 +1239,12 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
             console.log(`10거래일 완료, 시드 업데이트 실행: ${buyDateStr}`);
             // 과거 날짜 트레이드 생성 시 시드 업데이트는 수행하되, 출금액 수정 모달은 표시하지 않음
             try {
+              // 먼저 모든 트레이드의 dailyProfit 업데이트
+              console.log(
+                "시드 업데이트 전 모든 트레이드의 dailyProfit 업데이트"
+              );
+              updateDailyProfitsForAllTrades(newTrades);
+
               console.log(`시드 업데이트 전 현재 시드: ${currentSeed}`);
               console.log(
                 `시드 업데이트에 사용될 거래 수: ${newTrades.length}`
@@ -1603,6 +1621,10 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     console.log(
       `updateSeedForTrades 호출 - 날짜: ${tradeDate}, 현재 시드: ${currentSeed}, 거래 수: ${trades.length}`
     );
+
+    // 모든 트레이드의 dailyProfit이 정확히 업데이트되었는지 확인
+    console.log("시드 업데이트 전 모든 트레이드의 dailyProfit 최종 확인");
+    updateDailyProfitsForAllTrades(trades);
 
     // 현재 날짜와 트레이드 날짜 비교
     const today = new Date();
