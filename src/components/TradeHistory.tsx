@@ -2198,7 +2198,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                           <span
                             className={`px-2 py-1 rounded ${
                               trade.mode === "safe"
-                                ? "bg-blue-500"
+                                ? "bg-green-500"
                                 : "bg-red-500"
                             }`}
                           >
@@ -2239,11 +2239,6 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                                 ? `$${trade.actualSellPrice.toFixed(2)}`
                                 : "-"}
                             </span>
-                            {!trade.sellDate && (
-                              <button className="px-2 py-1 bg-blue-500 hover:bg-blue-600 rounded text-xs">
-                                매도
-                              </button>
-                            )}
                           </div>
                         </td>
                         <td className="px-2 py-2 border-b border-gray-600">
@@ -2269,7 +2264,11 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                           {/* 최근 10거래일 시드 업데이트 이후 날짜의 출금액만 수정 가능 */}
                           {isAfterLastUpdate ? (
                             <span
-                              className="cursor-pointer hover:text-blue-400"
+                              className={`cursor-pointer hover:text-blue-400 ${
+                                (index + 1) % 10 === 0
+                                  ? "text-red-500 font-bold"
+                                  : ""
+                              }`}
                               onClick={() => openWithdrawalModal(index)}
                             >
                               {trade.actualwithdrawalAmount !== undefined
@@ -2279,7 +2278,13 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                                 : "-"}
                             </span>
                           ) : (
-                            <span>
+                            <span
+                              className={`${
+                                (index + 1) % 10 === 0
+                                  ? "text-red-500 font-bold"
+                                  : ""
+                              }`}
+                            >
                               {trade.actualwithdrawalAmount !== undefined
                                 ? `$${Math.round(trade.actualwithdrawalAmount)}`
                                 : trade.withdrawalAmount !== undefined
