@@ -2333,15 +2333,13 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                             !showAllColumns ? "mobile-hidden" : ""
                           }`}
                         >
-                          {/* 날짜 형식 변경: YYYY-MM-DD -> MM.DD. */}
-                          {trade.sellDate
-                            ? new Date(trade.sellDate)
-                                .toLocaleDateString("ko-KR", {
-                                  month: "2-digit",
-                                  day: "2-digit",
-                                })
-                                .replace(/\. /g, ".")
-                            : "-"}
+                          {trade.sellDate ? (
+                            <span className="px-2 py-1 rounded bg-blue-500 text-white">
+                              완
+                            </span>
+                          ) : (
+                            trade.daysUntilSell
+                          )}
                         </td>
                         <td
                           className="px-2 py-2 border-b border-gray-600 cursor-pointer mobile-price-col"
