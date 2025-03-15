@@ -2337,6 +2337,8 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                             <span className="px-2 py-1 rounded bg-blue-500 text-white">
                               완
                             </span>
+                          ) : trade.actualBuyPrice === 0 ? (
+                            "-"
                           ) : (
                             trade.daysUntilSell
                           )}
