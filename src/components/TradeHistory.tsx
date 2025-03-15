@@ -2166,7 +2166,15 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                         className={`${rowClass} ${seedUpdateClass} ${afterUpdateClass} hover:bg-gray-600`}
                       >
                         <td className="px-2 py-2 border-b border-gray-600">
-                          {trade.buyDate}
+                          {/* 날짜 형식 변경: YYYY-MM-DD -> MM.DD. */}
+                          {trade.buyDate
+                            ? new Date(trade.buyDate)
+                                .toLocaleDateString("ko-KR", {
+                                  month: "2-digit",
+                                  day: "2-digit",
+                                })
+                                .replace(/\. /g, ".")
+                            : "-"}
                         </td>
                         <td className="px-2 py-2 border-b border-gray-600">
                           <span
@@ -2176,7 +2184,8 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                                 : "bg-red-500"
                             }`}
                           >
-                            {trade.mode}
+                            {/* 모드 표시 변경: aggressive -> 공, safe -> 안 */}
+                            {trade.mode === "safe" ? "안" : "공"}
                           </span>
                         </td>
                         <td className="px-2 py-2 border-b border-gray-600">
@@ -2192,7 +2201,15 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                           ${trade.targetSellPrice.toFixed(2)}
                         </td>
                         <td className="px-2 py-2 border-b border-gray-600">
-                          {trade.sellDate || "-"}
+                          {/* 날짜 형식 변경: YYYY-MM-DD -> MM.DD. */}
+                          {trade.sellDate
+                            ? new Date(trade.sellDate)
+                                .toLocaleDateString("ko-KR", {
+                                  month: "2-digit",
+                                  day: "2-digit",
+                                })
+                                .replace(/\. /g, ".")
+                            : "-"}
                         </td>
                         <td
                           className="px-2 py-2 border-b border-gray-600 cursor-pointer"
@@ -2227,16 +2244,16 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                         </td>
                         <td className="px-2 py-2 border-b border-gray-600">
                           {trade.dailyProfit !== undefined
-                            ? `$${trade.dailyProfit.toFixed(2)}`
+                            ? `$${Math.round(trade.dailyProfit)}`
                             : "-"}
                         </td>
                         <td className="px-2 py-2 border-b border-gray-600">
                           <div className="flex items-center space-x-2">
                             <span>
                               {trade.actualwithdrawalAmount !== undefined
-                                ? `$${trade.actualwithdrawalAmount.toFixed(2)}`
+                                ? `$${Math.round(trade.actualwithdrawalAmount)}`
                                 : trade.withdrawalAmount !== undefined
-                                ? `$${trade.withdrawalAmount.toFixed(2)}`
+                                ? `$${Math.round(trade.withdrawalAmount)}`
                                 : "-"}
                             </span>
                             <button
