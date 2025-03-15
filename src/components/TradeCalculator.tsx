@@ -29,10 +29,11 @@ interface TradeCalculatorProps {
   initialInvestment: number;
   mode: "safe" | "aggressive";
   settings: Settings;
-  userId: string;  // 추가: 동파 데이터 조회를 위한 사용자 ID
+  userId: string; // 추가: 동파 데이터 조회를 위한 사용자 ID
   yesterdaySell?: Trade;
   closingPrices: PriceEntry[];
   zeroDayTrades?: Trade[];
+  seedUpdateTrigger?: number; // 추가: 시드 업데이트 트리거
 }
 
 // 거래일 계산을 위한 유틸리티 함수들
@@ -119,16 +120,20 @@ const TradeCalculator: React.FC<TradeCalculatorProps> = ({
   yesterdaySell,
   closingPrices,
   zeroDayTrades,
+  seedUpdateTrigger,
 }) => {
   const [targetBuyPrice, setTargetBuyPrice] = useState<number>(0);
   const [buyQuantity, setBuyQuantity] = useState<number>(0);
 
   // dynamicwave 테이블의 updatedSeed 컬럼 데이터를 조회하여 최신 seed 값을 설정합니다.
-  const [latestSeed, setLatestSeed] = useState<number>(settings.currentInvestment);
+  const [latestSeed, setLatestSeed] = useState<number>(
+    settings.currentInvestment
+  );
 
   useEffect(() => {
     async function fetchLatestSeed() {
       if (!userId) return;
+      console.log("TradeCalculator: 최신 시드 값 조회 중...");
       const { data, error } = await supabase
         .from("dynamicwave")
         .select("updatedSeed")
@@ -141,17 +146,24 @@ const TradeCalculator: React.FC<TradeCalculatorProps> = ({
       if (data?.updatedSeed) {
         // updatedSeed가 배열 형태(예: [{ date: "2025-01-16", value: 78681.93 }, ...])라면
         if (Array.isArray(data.updatedSeed) && data.updatedSeed.length > 0) {
-          const sorted = data.updatedSeed.sort((a: any, b: any) => 
-            a.date.localeCompare(b.date)
+          const sorted = data.updatedSeed.sort(
+            (
+              a: { date: string; value: number },
+              b: { date: string; value: number }
+            ) => a.date.localeCompare(b.date)
           );
-          setLatestSeed(sorted[sorted.length - 1].value);
+          const newSeedValue = sorted[sorted.length - 1].value;
+          console.log(
+            `TradeCalculator: 최신 시드 값 업데이트 - ${newSeedValue}`
+          );
+          setLatestSeed(newSeedValue);
         } else {
           setLatestSeed(data.updatedSeed);
         }
       }
     }
     fetchLatestSeed();
-  }, [userId]);
+  }, [userId, seedUpdateTrigger]); // seedUpdateTrigger 의존성 추가
 
   useEffect(() => {
     if (closingPrices.length > 0) {

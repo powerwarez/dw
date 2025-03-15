@@ -79,7 +79,8 @@ const MainPage: React.FC = () => {
   const [saveStatus, setSaveStatus] = useState<
     "idle" | "loading" | "success" | "error"
   >("idle");
-  // 트레이드 재생성을 위한 trigger 상태
+  // 시드 업데이트 트리거 상태 추가
+  const [seedUpdateTrigger, setSeedUpdateTrigger] = useState<number>(0);
   // 모달 표시 여부
   const [showConfirmSaveModal, setShowConfirmSaveModal] = useState(false);
 
@@ -441,6 +442,12 @@ const MainPage: React.FC = () => {
     setZeroDayTrades(zTrades);
   };
 
+  // 시드 업데이트 핸들러 추가
+  const handleSeedUpdate = (newSeed: number) => {
+    console.log(`MainPage: 시드 업데이트 - ${newSeed}`);
+    setSeedUpdateTrigger((prev) => prev + 1);
+  };
+
   const lastMode = modes.length > 0 ? modes[modes.length - 1].mode : "safe";
 
   // 렌더링 시작 전 인증 상태 체크 (인증 로딩 중이면 로딩 화면 표시)
@@ -578,6 +585,7 @@ const MainPage: React.FC = () => {
             closingPrices={closingPrices}
             yesterdaySell={yesterdaySell}
             zeroDayTrades={zeroDayTrades}
+            seedUpdateTrigger={seedUpdateTrigger}
           />
           {modes && modes.length > 0 ? (
             <TradeHistory
@@ -587,6 +595,7 @@ const MainPage: React.FC = () => {
               onZeroDayTradesUpdate={handleZeroDayTradesUpdate}
               onTradesUpdate={handleTradesUpdate}
               onSellInfoUpdate={updateSellInfo}
+              onSeedUpdate={handleSeedUpdate}
               modes={modes}
               initialTrades={tradeHistory}
               userId={localSession?.user?.id as string}

@@ -101,7 +101,9 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
   const [manualFixInfo, setManualFixInfo] = useState<{ [key: string]: number }>(
     {}
   );
-  const [seedUpdateDates, setSeedUpdateDates] = useState<string[]>([]);
+  const [seedUpdateDates, setSeedUpdateDates] = useState<
+    { date: string; value: number }[]
+  >([]);
 
   const dailyProfitMap: {
     [date: string]: { totalProfit: number; tradeIndex: number };
@@ -1579,105 +1581,77 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
       console.log(`DB에서 기존 시드 정보 조회 중... (userId: ${userId})`);
       const { data: dbData, error } = await supabase
         .from("dynamicwave")
-        .select("updatedSeed, settings")
+        .select("updatedSeed")
         .eq("user_id", userId)
-        .single();
+        .maybeSingle();
 
       if (error) {
-        console.error("Seed update fetch error:", error);
-        console.log("========== checkAndUpdateSeed 종료 (오류) ==========");
+        console.error("기존 시드 정보 조회 오류:", error);
         return calculatedSeed;
       }
 
-      // updatedSeed가 null인 경우 빈 배열로 초기화
-      const updatedSeedRecords: { date: string; value: number }[] =
-        dbData?.updatedSeed
-          ? Array.isArray(dbData.updatedSeed)
-            ? dbData.updatedSeed
-            : []
-          : [];
+      let updatedSeedArray: { date: string; value: number }[] = [];
 
-      console.log("현재 updatedSeed 기록:", updatedSeedRecords);
-
-      // 이미 같은 날짜에 업데이트된 기록이 있는지 확인
-      const existingRecordIndex = updatedSeedRecords.findIndex(
-        (record) => record.date === recordDate
-      );
-      console.log(
-        `기존 기록 인덱스: ${existingRecordIndex} (${
-          existingRecordIndex === -1 ? "새 기록" : "기존 기록 업데이트"
-        })`
-      );
-
-      if (existingRecordIndex === -1) {
-        // 새 기록 추가
-        updatedSeedRecords.push({ date: recordDate, value: calculatedSeed });
-        console.log(`새 시드 기록 추가: ${recordDate}, ${calculatedSeed}`);
+      if (dbData?.updatedSeed && Array.isArray(dbData.updatedSeed)) {
+        updatedSeedArray = [...dbData.updatedSeed];
+        console.log("기존 updatedSeed 배열:", updatedSeedArray);
       } else {
-        // 기존 기록 업데이트
-        updatedSeedRecords[existingRecordIndex].value = calculatedSeed;
         console.log(
-          `기존 시드 기록 업데이트: ${recordDate}, ${calculatedSeed}`
+          "기존 updatedSeed 배열이 없거나 유효하지 않음. 새로 생성합니다."
         );
       }
 
-      // 시드 기록을 날짜순으로 정렬
-      updatedSeedRecords.sort((a, b) => a.date.localeCompare(b.date));
-      console.log("정렬된 시드 기록:", updatedSeedRecords);
+      // 이미 해당 날짜의 시드 업데이트가 있는지 확인
+      const existingIndex = updatedSeedArray.findIndex(
+        (item) => item.date === recordDate
+      );
 
-      // 설정에 현재 투자금 업데이트
-      const updatedSettings: Settings = {
-        ...dbData?.settings,
-        currentInvestment: calculatedSeed,
-      };
-      console.log(`설정 업데이트 - 현재 투자금: ${calculatedSeed}`);
-
-      // DB 업데이트
-      console.log("DB 업데이트 시작...");
-      const { error: upsertError } = await supabase.from("dynamicwave").upsert({
-        user_id: userId,
-        settings: updatedSettings,
-        tradehistory: tradesToUpdate,
-        updatedSeed: updatedSeedRecords,
-        manualFixInfo,
-      });
-
-      if (upsertError) {
-        console.error("시드 업데이트 저장 오류:", upsertError);
+      if (existingIndex !== -1) {
+        // 이미 해당 날짜의 시드 업데이트가 있으면 업데이트
         console.log(
-          "========== checkAndUpdateSeed 종료 (저장 오류) =========="
+          `${recordDate} 날짜의 기존 시드 업데이트 발견: ${updatedSeedArray[existingIndex].value} -> ${calculatedSeed}`
         );
+        updatedSeedArray[existingIndex].value = calculatedSeed;
+      } else {
+        // 해당 날짜의 시드 업데이트가 없으면 추가
+        console.log(
+          `${recordDate} 날짜의 시드 업데이트 추가: ${calculatedSeed}`
+        );
+        updatedSeedArray.push({
+          date: recordDate,
+          value: calculatedSeed,
+        });
+      }
+
+      // 날짜순으로 정렬
+      updatedSeedArray.sort((a, b) => a.date.localeCompare(b.date));
+
+      // 업데이트된 시드 배열을 DB에 저장
+      const { error: updateError } = await supabase
+        .from("dynamicwave")
+        .update({
+          updatedSeed: updatedSeedArray,
+          tradehistory: tradesToUpdate,
+        })
+        .eq("user_id", userId);
+
+      if (updateError) {
+        console.error("시드 업데이트 저장 오류:", updateError);
         return calculatedSeed;
       }
 
-      console.log(
-        `시드 업데이트 완료 - 날짜: ${recordDate}, 값: ${calculatedSeed}, 기록 개수: ${updatedSeedRecords.length}`
-      );
+      console.log("시드 업데이트 저장 성공:", updatedSeedArray);
+      setSeedUpdateDates(updatedSeedArray);
 
-      // 상태 업데이트 - 즉시 반영
-      console.log(`latestUpdatedSeedDate 상태 업데이트: ${recordDate}`);
-      setLatestUpdatedSeedDate(recordDate);
-
-      // seedUpdateDates 상태 업데이트 - 즉시 반영
-      const newSeedUpdateDates = [...seedUpdateDates];
-      if (!newSeedUpdateDates.includes(recordDate)) {
-        newSeedUpdateDates.push(recordDate);
-        // 날짜순 정렬
-        newSeedUpdateDates.sort((a, b) => a.localeCompare(b));
-        console.log(
-          `seedUpdateDates 상태 업데이트: ${newSeedUpdateDates.join(", ")}`
-        );
-        setSeedUpdateDates(newSeedUpdateDates);
+      // onSeedUpdate 콜백이 있으면 호출
+      if (onSeedUpdate) {
+        console.log(`onSeedUpdate 콜백 호출: ${calculatedSeed}`);
+        onSeedUpdate(calculatedSeed);
       }
 
-      console.log(`onSeedUpdate 콜백 호출: ${calculatedSeed}`);
-      onSeedUpdate?.(calculatedSeed);
-
-      console.log("========== checkAndUpdateSeed 종료 (성공) ==========");
       return calculatedSeed;
     } catch (error) {
       console.error("시드 업데이트 중 예외 발생:", error);
-      console.log("========== checkAndUpdateSeed 종료 (예외) ==========");
       return calculatedSeed;
     }
   };
@@ -1959,11 +1933,8 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
             ) => a.date.localeCompare(b.date)
           );
 
-          // 모든 시드 업데이트 날짜를 배열로 저장
-          const updateDates = sorted.map(
-            (item: { date: string; value: number }) => item.date
-          );
-          setSeedUpdateDates(updateDates);
+          // 모든 시드 업데이트 정보를 상태로 저장
+          setSeedUpdateDates(sorted);
 
           // 가장 최근 시드 업데이트 날짜 설정
           const latestDate = sorted[sorted.length - 1].date;
@@ -2102,8 +2073,8 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
             <tbody>
               {trades.map((trade, index) => {
                 // 시드 업데이트 날짜인지 확인
-                const isSeedUpdateDate = seedUpdateDates.includes(
-                  trade.buyDate
+                const isSeedUpdateDate = seedUpdateDates.some(
+                  (item) => item.date === trade.buyDate
                 );
                 // 마지막 시드 업데이트 이후의 거래인지 확인
                 const isAfterLastUpdate =
