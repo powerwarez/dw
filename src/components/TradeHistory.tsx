@@ -383,6 +383,44 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     return true; // 매도된 트레이드가 있음을 반환
   };
 
+  // 모든 트레이드를 검사하여 매도일과 일치하는 트레이드의 dailyProfit 업데이트
+  const updateDailyProfitsForAllTrades = (trades: Trade[]) => {
+    console.log("모든 트레이드의 dailyProfit 업데이트 시작");
+
+    // 매도일별로 수익 합계 계산
+    const sellDateProfits: Record<string, number> = {};
+
+    // 매도된 모든 트레이드를 순회하며 매도일별 수익 합계 계산
+    trades.forEach((trade) => {
+      if (trade.sellDate && trade.profit !== undefined) {
+        sellDateProfits[trade.sellDate] =
+          (sellDateProfits[trade.sellDate] || 0) + trade.profit;
+      }
+    });
+
+    console.log("매도일별 수익 합계:", sellDateProfits);
+
+    // 모든 트레이드를 순회하며 매도일과 일치하는 트레이드의 dailyProfit 업데이트
+    trades.forEach((trade) => {
+      const sellDateProfit = sellDateProfits[trade.buyDate] || 0;
+      if (sellDateProfit > 0) {
+        // 이미 dailyProfit이 있는 경우 매도 수익이 포함되어 있는지 확인
+        const currentDailyProfit = trade.dailyProfit || 0;
+
+        // 매도 수익이 이미 포함되어 있지 않다고 가정하고 업데이트
+        trade.dailyProfit = currentDailyProfit + sellDateProfit;
+        console.log(
+          `트레이드 #${trade.tradeIndex} (${trade.buyDate}) dailyProfit 업데이트: ${currentDailyProfit} -> ${trade.dailyProfit}`
+        );
+
+        // 매도일별 수익을 0으로 설정하여 중복 계산 방지
+        sellDateProfits[trade.buyDate] = 0;
+      }
+    });
+
+    console.log("모든 트레이드의 dailyProfit 업데이트 완료");
+  };
+
   useEffect(() => {
     const fetchTrades = async () => {
       let newTrades: Trade[] = [];
@@ -550,6 +588,10 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
           JSON.stringify(updatedTrades) !== JSON.stringify(newTrades);
         if (hasUpdates) {
           newTrades = updatedTrades;
+
+          // 모든 트레이드의 dailyProfit 업데이트
+          updateDailyProfitsForAllTrades(newTrades);
+
           await supabase.from("dynamicwave").upsert({
             user_id: userId,
             settings: { ...settings },
@@ -1242,6 +1284,10 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
           (a, b) =>
             new Date(a.buyDate).getTime() - new Date(b.buyDate).getTime()
         );
+
+        // 모든 트레이드의 dailyProfit 업데이트
+        updateDailyProfitsForAllTrades(sortedTrades);
+
         setTrades(sortedTrades);
         onTradesUpdate?.(sortedTrades);
       }
