@@ -858,8 +858,8 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
 
       // 과거 날짜에 대한 거래 생성
       for (let index = 0; index < closingPrices.length; index++) {
-        const priceEntry = closingPrices[index];
-        const rawBuyDateObj = new Date(priceEntry.date);
+        const priceEntryForDate = closingPrices[index];
+        const rawBuyDateObj = new Date(priceEntryForDate.date);
         if (rawBuyDateObj < startDateObj) continue;
 
         const buyDateStr = rawBuyDateObj.toISOString().split("T")[0];
@@ -886,11 +886,11 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         console.log(`${buyDateStr}에 거래가 없어 새로 생성 시도`);
 
         // 해당 날짜의 종가로 이전 트레이드들 중 매도 조건을 충족하는 트레이드들 매도 처리
-        const priceEntry = closingPrices.find(
+        const priceEntryForSell = closingPrices.find(
           (price) => price.date === buyDateStr
         );
-        if (priceEntry) {
-          const currentPrice = parseFloat(priceEntry.price);
+        if (priceEntryForSell) {
+          const currentPrice = parseFloat(priceEntryForSell.price);
           console.log(`${buyDateStr} 종가: ${currentPrice}`);
 
           // 매도 처리 직접 수행 (createTradeIfNotExists 호출 전에)
