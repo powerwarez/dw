@@ -2049,9 +2049,27 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
   };
 
   const openWithdrawalModal = (index: number) => {
+    // 최근 10거래일 시드 업데이트 이후 날짜의 출금액만 수정 가능
     const trade = trades[index];
+    const isAfterLastUpdate =
+      latestUpdatedSeedDate &&
+      new Date(trade.buyDate) > new Date(latestUpdatedSeedDate);
+
+    if (!isAfterLastUpdate) {
+      console.log(
+        "최근 10거래일 시드 업데이트 이후 날짜의 출금액만 수정할 수 있습니다."
+      );
+      return;
+    }
+
     setModalWithdrawalTradeIndex(index);
-    setModalWithdrawalAmount(trade.withdrawalAmount ?? 0);
+    setModalWithdrawalAmount(
+      trades[index].actualwithdrawalAmount !== undefined
+        ? trades[index].actualwithdrawalAmount
+        : trades[index].withdrawalAmount !== undefined
+        ? trades[index].withdrawalAmount
+        : 0
+    );
     setIsWithdrawalModalOpen(true);
   };
 
@@ -2248,7 +2266,19 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                             : "-"}
                         </td>
                         <td className="px-2 py-2 border-b border-gray-600">
-                          <div className="flex items-center space-x-2">
+                          {/* 최근 10거래일 시드 업데이트 이후 날짜의 출금액만 수정 가능 */}
+                          {isAfterLastUpdate ? (
+                            <span
+                              className="cursor-pointer hover:text-blue-400"
+                              onClick={() => openWithdrawalModal(index)}
+                            >
+                              {trade.actualwithdrawalAmount !== undefined
+                                ? `$${Math.round(trade.actualwithdrawalAmount)}`
+                                : trade.withdrawalAmount !== undefined
+                                ? `$${Math.round(trade.withdrawalAmount)}`
+                                : "-"}
+                            </span>
+                          ) : (
                             <span>
                               {trade.actualwithdrawalAmount !== undefined
                                 ? `$${Math.round(trade.actualwithdrawalAmount)}`
@@ -2256,13 +2286,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                                 ? `$${Math.round(trade.withdrawalAmount)}`
                                 : "-"}
                             </span>
-                            <button
-                              onClick={() => openWithdrawalModal(index)}
-                              className="px-2 py-1 bg-blue-500 hover:bg-blue-600 rounded text-xs"
-                            >
-                              수정
-                            </button>
-                          </div>
+                          )}
                         </td>
                       </tr>
                     );
