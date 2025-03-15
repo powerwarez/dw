@@ -421,6 +421,46 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     console.log("모든 트레이드의 dailyProfit 업데이트 완료");
   };
 
+  // 중복 계산 방지를 위해 dailyProfit을 초기화하고 다시 계산하는 함수
+  const recalculateDailyProfits = (trades: Trade[]) => {
+    console.log("모든 트레이드의 dailyProfit 초기화 및 재계산 시작");
+
+    // 1. 모든 트레이드의 dailyProfit 초기화
+    trades.forEach((trade) => {
+      trade.dailyProfit = 0;
+    });
+
+    // 2. 매도일별로 수익 합계 계산
+    const sellDateProfits: Record<string, number> = {};
+
+    // 매도된 모든 트레이드를 순회하며 매도일별 수익 합계 계산
+    trades.forEach((trade) => {
+      if (trade.sellDate && trade.profit !== undefined) {
+        sellDateProfits[trade.sellDate] =
+          (sellDateProfits[trade.sellDate] || 0) + trade.profit;
+      }
+    });
+
+    console.log("매도일별 수익 합계 (재계산):", sellDateProfits);
+
+    // 3. 모든 트레이드를 순회하며 매도일과 일치하는 트레이드의 dailyProfit 설정
+    trades.forEach((trade) => {
+      const sellDateProfit = sellDateProfits[trade.buyDate] || 0;
+      if (sellDateProfit > 0) {
+        trade.dailyProfit = sellDateProfit;
+        console.log(
+          `트레이드 #${trade.tradeIndex} (${trade.buyDate}) dailyProfit 설정: ${trade.dailyProfit}`
+        );
+
+        // 매도일별 수익을 0으로 설정하여 중복 계산 방지
+        sellDateProfits[trade.buyDate] = 0;
+      }
+    });
+
+    console.log("모든 트레이드의 dailyProfit 재계산 완료");
+    return trades;
+  };
+
   useEffect(() => {
     const fetchTrades = async () => {
       let newTrades: Trade[] = [];
@@ -505,18 +545,22 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
               new Date(a.buyDate).getTime() - new Date(b.buyDate).getTime()
           );
 
+          // 중복 계산 방지를 위해 dailyProfit 재계산
+          const recalculatedTrades =
+            recalculateDailyProfits(sortedUniqueTrades);
+
           // DB 업데이트
           try {
             await supabase.from("dynamicwave").upsert({
               user_id: userId,
               settings: { ...settings },
-              tradehistory: sortedUniqueTrades,
+              tradehistory: recalculatedTrades,
               manualFixInfo,
             });
             console.log("중복 제거된 트레이드로 DB 업데이트 완료");
 
             // 중복 제거된 트레이드 사용
-            newTrades = sortedUniqueTrades;
+            newTrades = recalculatedTrades;
           } catch (error) {
             console.error("중복 제거 후 DB 업데이트 실패:", error);
             // 실패 시 원래 트레이드를 날짜순으로 정렬하여 사용
@@ -524,6 +568,8 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
               (a, b) =>
                 new Date(a.buyDate).getTime() - new Date(b.buyDate).getTime()
             );
+            // 중복 계산 방지를 위해 dailyProfit 재계산
+            newTrades = recalculateDailyProfits(newTrades);
           }
         } else {
           // 중복이 없더라도 날짜순으로 정렬
@@ -531,6 +577,8 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
             (a, b) =>
               new Date(a.buyDate).getTime() - new Date(b.buyDate).getTime()
           );
+          // 중복 계산 방지를 위해 dailyProfit 재계산
+          newTrades = recalculateDailyProfits(newTrades);
         }
 
         // 남은 날짜가 0이거나 -1인 거래 처리
@@ -589,8 +637,8 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         if (hasUpdates) {
           newTrades = updatedTrades;
 
-          // 모든 트레이드의 dailyProfit 업데이트
-          updateDailyProfitsForAllTrades(newTrades);
+          // 중복 계산 방지를 위해 dailyProfit 재계산
+          newTrades = recalculateDailyProfits(newTrades);
 
           await supabase.from("dynamicwave").upsert({
             user_id: userId,
@@ -1303,11 +1351,11 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
             new Date(a.buyDate).getTime() - new Date(b.buyDate).getTime()
         );
 
-        // 모든 트레이드의 dailyProfit 업데이트
-        updateDailyProfitsForAllTrades(sortedTrades);
+        // 중복 계산 방지를 위해 dailyProfit 재계산
+        const finalTrades = recalculateDailyProfits(sortedTrades);
 
-        setTrades(sortedTrades);
-        onTradesUpdate?.(sortedTrades);
+        setTrades(finalTrades);
+        onTradesUpdate?.(finalTrades);
       }
       const todayStr = new Date().toISOString().split("T")[0];
       const lastTradeSale =
@@ -1622,9 +1670,8 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
       `updateSeedForTrades 호출 - 날짜: ${tradeDate}, 현재 시드: ${currentSeed}, 거래 수: ${trades.length}`
     );
 
-    // 모든 트레이드의 dailyProfit이 정확히 업데이트되었는지 확인
-    console.log("시드 업데이트 전 모든 트레이드의 dailyProfit 최종 확인");
-    updateDailyProfitsForAllTrades(trades);
+    // 중복 계산 방지를 위해 dailyProfit 재계산
+    const recalculatedTrades = recalculateDailyProfits(trades);
 
     // 현재 날짜와 트레이드 날짜 비교
     const today = new Date();
@@ -1689,11 +1736,15 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     }
 
     console.log("computeUpdatedSeed 함수 호출...");
-    const newSeed = computeUpdatedSeed(trades, currentSeed);
+    const newSeed = computeUpdatedSeed(recalculatedTrades, currentSeed);
     console.log(`계산된 새 시드: ${newSeed}`);
 
     console.log("checkAndUpdateSeed 함수 호출...");
-    const updatedSeed = await checkAndUpdateSeed(newSeed, trades, tradeDate);
+    const updatedSeed = await checkAndUpdateSeed(
+      newSeed,
+      recalculatedTrades,
+      tradeDate
+    );
     console.log(`최종 업데이트된 시드: ${updatedSeed}`);
 
     // 시드 업데이트 후 latestUpdatedSeedDate 상태 업데이트
