@@ -177,6 +177,13 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     }
     console.log(`${date} 날짜의 종가 데이터: ${priceEntry.price}`);
 
+    // 현재 종가로 이전 트레이드들 중 매도 조건을 충족하는 트레이드들 매도 처리
+    const currentPrice = parseFloat(priceEntry.price);
+    console.log(`${date} 날짜의 현재 가격: ${currentPrice}`);
+
+    // 이전 트레이드들 중 매도 조건을 충족하는 트레이드들 매도 처리
+    processSellConditionsForExistingTrades(existingTrades, date, currentPrice);
+
     // 전날 종가 가져오기
     const priceIndex = closingPrices.findIndex((price) => price.date === date);
     const previousClosePrice =
@@ -184,10 +191,6 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         ? parseFloat(closingPrices[priceIndex - 1].price)
         : parseFloat(priceEntry.price);
     console.log(`${date} 날짜의 전날 종가: ${previousClosePrice}`);
-
-    // 현재 가격
-    const currentPrice = parseFloat(priceEntry.price);
-    console.log(`${date} 날짜의 현재 가격: ${currentPrice}`);
 
     // 모드 결정
     const mode =
@@ -285,6 +288,70 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
 
     console.log(`${date} 날짜에 새로운 트레이드 생성:`, newTrade);
     return newTrade;
+  };
+
+  // 이전 트레이드들 중 매도 조건을 충족하는 트레이드들 매도 처리 함수
+  const processSellConditionsForExistingTrades = (
+    trades: Trade[],
+    sellDate: string,
+    currentPrice: number
+  ) => {
+    console.log(
+      `${sellDate} 날짜의 종가(${currentPrice})로 매도 조건 검사 시작`
+    );
+
+    // 매도되지 않은 트레이드들 중 매도 조건을 충족하는 트레이드들 찾기
+    const tradesToSell = trades.filter(
+      (trade) =>
+        // 매도되지 않은 트레이드
+        !trade.sellDate &&
+        // 수량이 있는 트레이드
+        trade.quantity > 0 &&
+        // 매수가가 있는 트레이드
+        trade.actualBuyPrice > 0 &&
+        // 매도 목표가가 있는 트레이드
+        trade.targetSellPrice > 0 &&
+        // 현재 가격이 매도 목표가 이상인 트레이드
+        currentPrice >= trade.targetSellPrice
+    );
+
+    if (tradesToSell.length === 0) {
+      console.log(
+        `${sellDate} 날짜에 매도 조건을 충족하는 트레이드가 없습니다.`
+      );
+      return;
+    }
+
+    console.log(
+      `${sellDate} 날짜에 매도 조건을 충족하는 트레이드 수: ${tradesToSell.length}`
+    );
+
+    // 매도 조건을 충족하는 트레이드들 매도 처리
+    tradesToSell.forEach((trade) => {
+      console.log(
+        `트레이드 #${trade.tradeIndex} 매도 처리 (매수일: ${trade.buyDate}, 목표 매도가: ${trade.targetSellPrice}, 현재가: ${currentPrice})`
+      );
+
+      // 매도 정보 설정
+      trade.sellDate = sellDate;
+      trade.actualSellPrice = currentPrice;
+      trade.sellQuantity = trade.quantity;
+      trade.profit = (currentPrice - trade.actualBuyPrice) * trade.quantity;
+
+      console.log(
+        `트레이드 #${trade.tradeIndex} 매도 완료 - 매도가: ${currentPrice}, 수익: ${trade.profit}`
+      );
+
+      // 해당 매도일의 일일 수익에 추가
+      const dailyTrade = trades.find((t) => t.buyDate === sellDate);
+      if (dailyTrade) {
+        dailyTrade.dailyProfit =
+          (dailyTrade.dailyProfit || 0) + (trade.profit || 0);
+        console.log(
+          `${sellDate} 날짜의 일일 수익 업데이트: ${dailyTrade.dailyProfit}`
+        );
+      }
+    });
   };
 
   useEffect(() => {
