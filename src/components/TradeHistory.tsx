@@ -368,6 +368,16 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
       console.log(
         `${sellDate} 날짜의 트레이드가 아직 없습니다. 이 날짜의 트레이드가 생성될 때 매도 수익(${totalProfitFromSells})이 반영될 것입니다.`
       );
+
+      // 이 날짜의 트레이드가 나중에 생성될 때 사용할 수 있도록 dailyProfitMap에 저장
+      dailyProfitMap[sellDate] = dailyProfitMap[sellDate] || {
+        totalProfit: 0,
+        tradeIndex: 0,
+      };
+      dailyProfitMap[sellDate].totalProfit += totalProfitFromSells;
+      console.log(
+        `dailyProfitMap에 ${sellDate} 날짜의 매도 수익 ${totalProfitFromSells} 저장됨`
+      );
     }
 
     return true; // 매도된 트레이드가 있음을 반환
@@ -667,6 +677,24 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                   profit: t.profit,
                 }))
               );
+
+              // 이미 어제 날짜의 트레이드가 있는지 확인하고 dailyProfit 업데이트
+              const existingYesterdayTrade = newTrades.find(
+                (t) => t.buyDate === yesterdayStr
+              );
+              if (existingYesterdayTrade) {
+                console.log(
+                  `기존 어제(${yesterdayStr}) 트레이드 발견, dailyProfit 업데이트: ${
+                    existingYesterdayTrade.dailyProfit
+                  } -> ${
+                    (existingYesterdayTrade.dailyProfit || 0) +
+                    yesterdayProfitFromSells
+                  }`
+                );
+                existingYesterdayTrade.dailyProfit =
+                  (existingYesterdayTrade.dailyProfit || 0) +
+                  yesterdayProfitFromSells;
+              }
             }
 
             // 어제 날짜의 종가 데이터가 있으면 새 거래 생성
@@ -867,14 +895,30 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
               `오늘(${currentDateStr}) 매도된 트레이드들의 수익 합계: ${todayProfitFromSells} (${soldTradesToday.length}개 트레이드)`
             );
 
-            // 오늘 매도된 트레이드들의 수익을 오늘 트레이드의 dailyProfit에 추가
-            if (todayProfitFromSells > 0) {
-              todayTrade.dailyProfit =
-                (todayTrade.dailyProfit || 0) + todayProfitFromSells;
+            // 이미 오늘 날짜의 트레이드가 있는지 확인하고 dailyProfit 업데이트
+            const existingTodayTrade = newTrades.find(
+              (t) => t.buyDate === currentDateStr
+            );
+            if (existingTodayTrade) {
               console.log(
-                `오늘 트레이드의 dailyProfit 업데이트: ${todayTrade.dailyProfit}`
+                `기존 오늘(${currentDateStr}) 트레이드 발견, dailyProfit 업데이트: ${
+                  existingTodayTrade.dailyProfit
+                } -> ${
+                  (existingTodayTrade.dailyProfit || 0) + todayProfitFromSells
+                }`
               );
+              existingTodayTrade.dailyProfit =
+                (existingTodayTrade.dailyProfit || 0) + todayProfitFromSells;
             }
+          }
+
+          // 오늘 매도된 트레이드들의 수익을 오늘 트레이드의 dailyProfit에 추가
+          if (todayProfitFromSells > 0) {
+            todayTrade.dailyProfit =
+              (todayTrade.dailyProfit || 0) + todayProfitFromSells;
+            console.log(
+              `오늘 트레이드의 dailyProfit 업데이트: ${todayTrade.dailyProfit}`
+            );
           }
 
           newTrades.push(todayTrade);
