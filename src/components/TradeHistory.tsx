@@ -1325,6 +1325,53 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
       );
     }
 
+    // 데이터베이스에서 가장 최근 updatedSeed 값 가져오기
+    try {
+      const { data, error } = await supabase
+        .from("dynamicwave")
+        .select("updatedSeed")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (error) {
+        console.error("updatedSeed 조회 오류:", error);
+        console.log("기존 currentSeed 값을 사용합니다:", currentSeed);
+      } else if (
+        data?.updatedSeed &&
+        Array.isArray(data.updatedSeed) &&
+        data.updatedSeed.length > 0
+      ) {
+        // 날짜순으로 정렬
+        const sortedUpdatedSeed = [...data.updatedSeed].sort(
+          (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+        );
+
+        // 가장 최근 updatedSeed 값 가져오기
+        const latestSeedRecord =
+          sortedUpdatedSeed[sortedUpdatedSeed.length - 1];
+
+        // 가장 최근 updatedSeed 값이 현재 계산하려는 날짜보다 이전인 경우에만 사용
+        if (new Date(latestSeedRecord.date) < tradeDateObj) {
+          console.log(
+            `데이터베이스의 가장 최근 updatedSeed 값을 사용합니다: ${latestSeedRecord.date}, 값: ${latestSeedRecord.value}`
+          );
+          currentSeed = latestSeedRecord.value;
+        } else {
+          console.log(
+            `현재 계산하려는 날짜(${tradeDate})가 가장 최근 updatedSeed 날짜(${latestSeedRecord.date})보다 이전이므로 기존 currentSeed 값을 사용합니다: ${currentSeed}`
+          );
+        }
+      } else {
+        console.log(
+          "데이터베이스에 updatedSeed 값이 없습니다. 기존 currentSeed 값을 사용합니다:",
+          currentSeed
+        );
+      }
+    } catch (error) {
+      console.error("updatedSeed 조회 중 예외 발생:", error);
+      console.log("기존 currentSeed 값을 사용합니다:", currentSeed);
+    }
+
     console.log("computeUpdatedSeed 함수 호출...");
     const newSeed = computeUpdatedSeed(trades, currentSeed);
     console.log(`계산된 새 시드: ${newSeed}`);
