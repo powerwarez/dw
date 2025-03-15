@@ -104,6 +104,8 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
   const [seedUpdateDates, setSeedUpdateDates] = useState<
     { date: string; value: number }[]
   >([]);
+  // 아코디언 상태 추가
+  const [isTableCollapsed, setIsTableCollapsed] = useState<boolean>(false);
 
   const dailyProfitMap: {
     [date: string]: { totalProfit: number; tradeIndex: number };
@@ -2066,165 +2068,192 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
             <p>거래 내역이 없습니다.</p>
           )
         ) : (
-          <table className="w-full">
-            <thead>
-              <tr>
-                <th>매수 날짜</th>
-                <th>모드</th>
-                <th>매수 목표가</th>
-                <th>실제 매수가</th>
-                <th>수량</th>
-                <th>매도 목표가</th>
-                <th>매도 날짜</th>
-                <th>실제 매도가</th>
-                <th>매도 수량</th>
-                <th>남은 수량</th>
-                <th>수익금</th>
-                <th>남은 날짜</th>
-                <th>당일손익</th>
-                <th>출금액</th>
-              </tr>
-            </thead>
-            <tbody>
-              {trades.map((trade, index) => {
-                // 시드 업데이트 날짜인지 확인
-                const isSeedUpdateDate = seedUpdateDates.some(
-                  (item) => item.date === trade.buyDate
-                );
-                // 마지막 시드 업데이트 이후의 거래인지 확인
-                const isAfterLastUpdate =
-                  latestUpdatedSeedDate &&
-                  new Date(trade.buyDate) > new Date(latestUpdatedSeedDate);
+          <div className="relative overflow-x-auto">
+            {/* 아코디언 토글 버튼 */}
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="text-lg font-bold">거래 내역</h3>
+              <button
+                onClick={() => setIsTableCollapsed(!isTableCollapsed)}
+                className="px-3 py-1 bg-gray-600 hover:bg-gray-500 rounded text-sm"
+              >
+                {isTableCollapsed ? "모든 내역 보기" : "마지막 행만 보기"}
+              </button>
+            </div>
 
-                return (
-                  <tr key={index}>
-                    <td className="text-center">
-                      {new Date(trade.buyDate).toLocaleDateString("ko-KR", {
-                        month: "2-digit",
-                        day: "2-digit",
-                      })}
-                    </td>
-                    <td className="text-center">
-                      {trade.mode === "safe" ? (
-                        <span style={{ color: "green" }}>안전</span>
-                      ) : (
-                        <span style={{ color: "red" }}>공세</span>
-                      )}
-                    </td>
-                    <td className="text-center">
-                      {trade.targetBuyPrice.toFixed(2)}
-                    </td>
-                    <td className="text-center">
-                      {trade.actualBuyPrice.toFixed(2)}
-                    </td>
-                    <td className="text-center">{trade.quantity}</td>
-                    <td className="text-center">
-                      {trade.targetSellPrice.toFixed(2)}
-                    </td>
-                    <td
-                      className="text-center cursor-pointer"
-                      onClick={() => openSellModal(index)}
-                    >
-                      {trade.actualBuyPrice > 0
-                        ? trade.sellDate
-                          ? new Date(trade.sellDate).toLocaleDateString(
-                              "ko-KR",
-                              {
-                                month: "2-digit",
-                                day: "2-digit",
-                              }
-                            )
-                          : "-"
-                        : "-"}
-                    </td>
-                    <td
-                      className="text-center cursor-pointer"
-                      onClick={() => openSellModal(index)}
-                    >
-                      {trade.actualBuyPrice > 0
-                        ? trade.actualSellPrice !== undefined
-                          ? trade.actualSellPrice.toFixed(2)
-                          : "-"
-                        : "-"}
-                    </td>
-                    <td
-                      className="text-center cursor-pointer"
-                      onClick={() => openSellModal(index)}
-                    >
-                      {trade.actualBuyPrice > 0
-                        ? typeof trade.sellQuantity === "number"
-                          ? trade.sellQuantity
-                          : "-"
-                        : "-"}
-                    </td>
-                    <td className="text-center">
-                      {trade.actualBuyPrice > 0
-                        ? trade.quantity - (trade.sellQuantity || 0)
-                        : "-"}
-                    </td>
-                    <td className="text-center">
-                      {trade.actualBuyPrice > 0
-                        ? trade.profit?.toFixed(2) || 0
-                        : "-"}
-                    </td>
-                    <td className="text-center">
-                      {trade.quantity - (trade.sellQuantity || 0) > 0
-                        ? trade.daysUntilSell
-                        : "-"}
-                    </td>
-                    <td className="text-center">
-                      {trade.dailyProfit?.toFixed(2)}
-                    </td>
-                    <td className="text-center">
-                      {trade.buyDate ? (
-                        (() => {
-                          // 현재 날짜와 트레이드 날짜 비교
-                          const today = new Date();
-                          const tradeDate = new Date(trade.buyDate);
-                          const diffDays = Math.floor(
-                            (today.getTime() - tradeDate.getTime()) /
-                              (1000 * 60 * 60 * 24)
-                          );
-
-                          // 7일 이내의 최근 거래이고 마지막 시드 업데이트 이후의 거래인 경우에만 클릭 가능
-                          const isRecentTrade = diffDays <= 7;
-                          const isEditable = isAfterLastUpdate && isRecentTrade;
-
-                          if (isEditable) {
-                            // 1. 마지막 시드 업데이트 이후의 최근 거래일: 빨간색 + 클릭 가능 (수정 가능)
-                            return (
-                              <span
-                                className="cursor-pointer text-red-500"
-                                onClick={() => openWithdrawalModal(index)}
-                              >
-                                {trade.manualFixedWithdrawal !== undefined
-                                  ? trade.manualFixedWithdrawal
-                                  : `${trade.withdrawalAmount || 0}(예정)`}
-                              </span>
-                            );
-                          } else if (isSeedUpdateDate) {
-                            // 2. 시드 업데이트가 발생한 날짜: 빨간색 (수정 불가)
-                            return (
-                              <span className="text-red-500">
-                                {trade.actualwithdrawalAmount ?? 0}
-                              </span>
-                            );
-                          } else {
-                            // 3. 그 외 모든 날짜: 흰색 (수정 불가)
-                            return (
-                              <span>{trade.actualwithdrawalAmount ?? 0}</span>
-                            );
-                          }
-                        })()
-                      ) : (
-                        <span>-</span>
-                      )}
-                    </td>
+            {/* 테이블 컨테이너에 스타일 적용 */}
+            <div className="overflow-x-auto max-h-[500px] relative">
+              <style>{`
+                .bg-gray-750 {
+                  background-color: #2d3748;
+                }
+              `}</style>
+              <table className="w-full">
+                {/* 고정된 헤더를 위한 스타일 적용 */}
+                <thead className="sticky top-0 bg-gray-800 z-10">
+                  <tr>
+                    <th className="px-2 py-3 border-b border-gray-600">
+                      매수 날짜
+                    </th>
+                    <th className="px-2 py-3 border-b border-gray-600">모드</th>
+                    <th className="px-2 py-3 border-b border-gray-600">
+                      매수 목표가
+                    </th>
+                    <th className="px-2 py-3 border-b border-gray-600">
+                      실제 매수가
+                    </th>
+                    <th className="px-2 py-3 border-b border-gray-600">수량</th>
+                    <th className="px-2 py-3 border-b border-gray-600">
+                      매도 목표가
+                    </th>
+                    <th className="px-2 py-3 border-b border-gray-600">
+                      매도 날짜
+                    </th>
+                    <th className="px-2 py-3 border-b border-gray-600">
+                      실제 매도가
+                    </th>
+                    <th className="px-2 py-3 border-b border-gray-600">
+                      매도 수량
+                    </th>
+                    <th className="px-2 py-3 border-b border-gray-600">
+                      남은 수량
+                    </th>
+                    <th className="px-2 py-3 border-b border-gray-600">
+                      수익금
+                    </th>
+                    <th className="px-2 py-3 border-b border-gray-600">
+                      남은 날짜
+                    </th>
+                    <th className="px-2 py-3 border-b border-gray-600">
+                      당일손익
+                    </th>
+                    <th className="px-2 py-3 border-b border-gray-600">
+                      출금액
+                    </th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                </thead>
+                <tbody>
+                  {/* 아코디언 기능 적용 - 마지막 행만 표시하거나 모든 행 표시 */}
+                  {(isTableCollapsed
+                    ? [trades[trades.length - 1]]
+                    : trades
+                  ).map((trade, index) => {
+                    // 시드 업데이트 날짜인지 확인
+                    const isSeedUpdateDate = seedUpdateDates.some(
+                      (item) => item.date === trade.buyDate
+                    );
+                    // 마지막 시드 업데이트 이후의 거래인지 확인
+                    const isAfterLastUpdate =
+                      latestUpdatedSeedDate &&
+                      new Date(trade.buyDate) > new Date(latestUpdatedSeedDate);
+
+                    // 홀수행/짝수행 배경색 구분을 위한 클래스 추가
+                    const rowClass =
+                      index % 2 === 0 ? "bg-gray-700" : "bg-gray-750";
+
+                    // 시드 업데이트 날짜인 경우 하이라이트
+                    const seedUpdateClass = isSeedUpdateDate
+                      ? "bg-blue-900"
+                      : "";
+
+                    // 마지막 시드 업데이트 이후의 거래인 경우 하이라이트
+                    const afterUpdateClass = isAfterLastUpdate
+                      ? "border-l-4 border-green-500"
+                      : "";
+
+                    return (
+                      <tr
+                        key={trade.tradeIndex}
+                        className={`${rowClass} ${seedUpdateClass} ${afterUpdateClass} hover:bg-gray-600`}
+                      >
+                        <td className="px-2 py-2 border-b border-gray-600">
+                          {trade.buyDate}
+                        </td>
+                        <td className="px-2 py-2 border-b border-gray-600">
+                          <span
+                            className={`px-2 py-1 rounded ${
+                              trade.mode === "safe"
+                                ? "bg-blue-500"
+                                : "bg-red-500"
+                            }`}
+                          >
+                            {trade.mode}
+                          </span>
+                        </td>
+                        <td className="px-2 py-2 border-b border-gray-600">
+                          ${trade.targetBuyPrice.toFixed(2)}
+                        </td>
+                        <td className="px-2 py-2 border-b border-gray-600">
+                          ${trade.actualBuyPrice.toFixed(2)}
+                        </td>
+                        <td className="px-2 py-2 border-b border-gray-600">
+                          {trade.quantity}
+                        </td>
+                        <td className="px-2 py-2 border-b border-gray-600">
+                          ${trade.targetSellPrice.toFixed(2)}
+                        </td>
+                        <td className="px-2 py-2 border-b border-gray-600">
+                          {trade.sellDate || "-"}
+                        </td>
+                        <td
+                          className="px-2 py-2 border-b border-gray-600 cursor-pointer"
+                          onClick={() => openSellModal(index)}
+                        >
+                          <div className="flex items-center space-x-2">
+                            <span>
+                              {trade.actualSellPrice
+                                ? `$${trade.actualSellPrice.toFixed(2)}`
+                                : "-"}
+                            </span>
+                            {!trade.sellDate && (
+                              <button className="px-2 py-1 bg-blue-500 hover:bg-blue-600 rounded text-xs">
+                                매도
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-2 py-2 border-b border-gray-600">
+                          {trade.sellQuantity || "-"}
+                        </td>
+                        <td className="px-2 py-2 border-b border-gray-600">
+                          {trade.quantity - (trade.sellQuantity || 0)}
+                        </td>
+                        <td className="px-2 py-2 border-b border-gray-600">
+                          {trade.profit !== undefined
+                            ? `$${trade.profit.toFixed(2)}`
+                            : "-"}
+                        </td>
+                        <td className="px-2 py-2 border-b border-gray-600">
+                          {trade.daysUntilSell}
+                        </td>
+                        <td className="px-2 py-2 border-b border-gray-600">
+                          {trade.dailyProfit !== undefined
+                            ? `$${trade.dailyProfit.toFixed(2)}`
+                            : "-"}
+                        </td>
+                        <td className="px-2 py-2 border-b border-gray-600">
+                          <div className="flex items-center space-x-2">
+                            <span>
+                              {trade.actualwithdrawalAmount !== undefined
+                                ? `$${trade.actualwithdrawalAmount.toFixed(2)}`
+                                : trade.withdrawalAmount !== undefined
+                                ? `$${trade.withdrawalAmount.toFixed(2)}`
+                                : "-"}
+                            </span>
+                            <button
+                              onClick={() => openWithdrawalModal(index)}
+                              className="px-2 py-1 bg-blue-500 hover:bg-blue-600 rounded text-xs"
+                            >
+                              수정
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
         )}
       </div>
 
