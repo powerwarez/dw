@@ -2367,15 +2367,14 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                             !showAllColumns ? "mobile-hidden" : ""
                           }`}
                         >
-                          {trade.sellDate ? (
-                            <span className="px-2 py-1 rounded bg-blue-500 text-white">
-                              완
-                            </span>
-                          ) : trade.actualBuyPrice === 0 ? (
-                            "-"
-                          ) : (
-                            trade.daysUntilSell
-                          )}
+                          {trade.sellDate
+                            ? new Date(trade.sellDate)
+                                .toLocaleDateString("ko-KR", {
+                                  month: "2-digit",
+                                  day: "2-digit",
+                                })
+                                .replace(/\. /g, ".")
+                            : "-"}
                         </td>
                         <td
                           className="px-2 py-2 border-b border-gray-600 cursor-pointer mobile-price-col"
@@ -2413,7 +2412,15 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                             !showAllColumns ? "mobile-hidden" : ""
                           }`}
                         >
-                          {trade.daysUntilSell}
+                          {trade.sellDate ? (
+                            <span className="px-2 py-1 rounded bg-blue-500 text-white">
+                              완
+                            </span>
+                          ) : trade.actualBuyPrice === 0 ? (
+                            "-"
+                          ) : (
+                            trade.daysUntilSell
+                          )}
                         </td>
                         <td className="px-2 py-2 border-b border-gray-600 mobile-daily-col">
                           {trade.dailyProfit !== undefined
