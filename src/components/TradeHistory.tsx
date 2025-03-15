@@ -319,7 +319,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
       console.log(
         `${sellDate} 날짜에 매도 조건을 충족하는 트레이드가 없습니다.`
       );
-      return;
+      return false; // 매도된 트레이드가 없음을 반환
     }
 
     console.log(
@@ -352,6 +352,8 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         );
       }
     });
+
+    return true; // 매도된 트레이드가 있음을 반환
   };
 
   useEffect(() => {
@@ -586,6 +588,36 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
             console.log(
               `어제 종가 데이터 발견: ${yesterdayClosing.date}, 가격: ${yesterdayClosing.price}`
             );
+
+            // 어제 종가로 이전 트레이드들 중 매도 조건을 충족하는 트레이드들 매도 처리
+            const currentPrice = parseFloat(yesterdayClosing.price);
+            console.log(`어제 종가: ${currentPrice}`);
+
+            // 매도 처리 직접 수행 (createTradeIfNotExists 호출 전에)
+            const hasSoldTrades = processSellConditionsForExistingTrades(
+              newTrades,
+              yesterdayStr,
+              currentPrice
+            );
+
+            // 매도 처리 후 DB에 저장 (시드 업데이트 전에 매도 정보가 반영되도록)
+            if (hasSoldTrades) {
+              console.log(
+                "어제 종가로 매도된 트레이드가 있어 DB에 저장합니다."
+              );
+              try {
+                await supabase.from("dynamicwave").upsert({
+                  user_id: userId,
+                  settings: { ...settings },
+                  tradehistory: newTrades,
+                  manualFixInfo,
+                });
+                console.log("매도 처리된 트레이드 정보가 DB에 저장되었습니다.");
+              } catch (error) {
+                console.error("매도 처리 후 DB 저장 오류:", error);
+              }
+            }
+
             // 어제 날짜의 종가 데이터가 있으면 새 거래 생성
             const newYesterdayTrade = createTradeIfNotExists(
               yesterdayStr,
@@ -711,6 +743,34 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
       // 오늘 날짜의 트레이드가 없고, 종가 데이터가 있으면 새 트레이드 생성
       if (existingCurrentDateTrades.length === 0 && currentDateClosingData) {
         console.log("오늘 날짜의 새 트레이드 생성 시도");
+
+        // 오늘 종가로 이전 트레이드들 중 매도 조건을 충족하는 트레이드들 매도 처리
+        const currentPrice = parseFloat(currentDateClosingData.price);
+        console.log(`오늘 종가: ${currentPrice}`);
+
+        // 매도 처리 직접 수행 (createTradeIfNotExists 호출 전에)
+        const hasSoldTrades = processSellConditionsForExistingTrades(
+          newTrades,
+          currentDateStr,
+          currentPrice
+        );
+
+        // 매도 처리 후 DB에 저장 (시드 업데이트 전에 매도 정보가 반영되도록)
+        if (hasSoldTrades) {
+          console.log("오늘 종가로 매도된 트레이드가 있어 DB에 저장합니다.");
+          try {
+            await supabase.from("dynamicwave").upsert({
+              user_id: userId,
+              settings: { ...settings },
+              tradehistory: newTrades,
+              manualFixInfo,
+            });
+            console.log("매도 처리된 트레이드 정보가 DB에 저장되었습니다.");
+          } catch (error) {
+            console.error("매도 처리 후 DB 저장 오류:", error);
+          }
+        }
+
         const todayTrade = createTradeIfNotExists(
           currentDateStr,
           newTrades,
@@ -824,6 +884,41 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
 
         // 해당 날짜에 거래가 없으면 새로 생성
         console.log(`${buyDateStr}에 거래가 없어 새로 생성 시도`);
+
+        // 해당 날짜의 종가로 이전 트레이드들 중 매도 조건을 충족하는 트레이드들 매도 처리
+        const priceEntry = closingPrices.find(
+          (price) => price.date === buyDateStr
+        );
+        if (priceEntry) {
+          const currentPrice = parseFloat(priceEntry.price);
+          console.log(`${buyDateStr} 종가: ${currentPrice}`);
+
+          // 매도 처리 직접 수행 (createTradeIfNotExists 호출 전에)
+          const hasSoldTrades = processSellConditionsForExistingTrades(
+            newTrades,
+            buyDateStr,
+            currentPrice
+          );
+
+          // 매도 처리 후 DB에 저장 (시드 업데이트 전에 매도 정보가 반영되도록)
+          if (hasSoldTrades) {
+            console.log(
+              `${buyDateStr} 종가로 매도된 트레이드가 있어 DB에 저장합니다.`
+            );
+            try {
+              await supabase.from("dynamicwave").upsert({
+                user_id: userId,
+                settings: { ...settings },
+                tradehistory: newTrades,
+                manualFixInfo,
+              });
+              console.log("매도 처리된 트레이드 정보가 DB에 저장되었습니다.");
+            } catch (error) {
+              console.error("매도 처리 후 DB 저장 오류:", error);
+            }
+          }
+        }
+
         const historicalTrade = createTradeIfNotExists(
           buyDateStr,
           newTrades,
