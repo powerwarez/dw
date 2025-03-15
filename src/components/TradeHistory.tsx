@@ -352,21 +352,31 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
       totalProfitFromSells += trade.profit || 0;
 
       console.log(
-        `트레이드 #${trade.tradeIndex} 매도 완료 - 매도가: ${currentPrice}, 수익: ${trade.profit}`
+        `트레이드 #${
+          trade.tradeIndex
+        } 매도 완료 - 매도가: ${currentPrice}, 수익: ${trade.profit} (${
+          trade.profit > 0 ? "이익" : "손실"
+        })`
       );
     });
 
-    // 해당 매도일의 일일 수익에 추가
+    // 해당 매도일의 일일 수익에 추가 (음수 수익도 반영)
     const dailyTrade = trades.find((t) => t.buyDate === sellDate);
     if (dailyTrade) {
       dailyTrade.dailyProfit =
         (dailyTrade.dailyProfit || 0) + totalProfitFromSells;
       console.log(
-        `${sellDate} 날짜의 일일 수익 업데이트: ${dailyTrade.dailyProfit} (매도 수익 추가: ${totalProfitFromSells})`
+        `${sellDate} 날짜의 일일 수익 업데이트: ${
+          dailyTrade.dailyProfit
+        } (매도 수익 추가: ${totalProfitFromSells}, ${
+          totalProfitFromSells > 0 ? "이익" : "손실"
+        })`
       );
     } else {
       console.log(
-        `${sellDate} 날짜의 트레이드가 아직 없습니다. 이 날짜의 트레이드가 생성될 때 매도 수익(${totalProfitFromSells})이 반영될 것입니다.`
+        `${sellDate} 날짜의 트레이드가 아직 없습니다. 이 날짜의 트레이드가 생성될 때 매도 수익(${totalProfitFromSells}, ${
+          totalProfitFromSells > 0 ? "이익" : "손실"
+        })이 반영될 것입니다.`
       );
 
       // 이 날짜의 트레이드가 나중에 생성될 때 사용할 수 있도록 dailyProfitMap에 저장
@@ -376,7 +386,9 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
       };
       dailyProfitMap[sellDate].totalProfit += totalProfitFromSells;
       console.log(
-        `dailyProfitMap에 ${sellDate} 날짜의 매도 수익 ${totalProfitFromSells} 저장됨`
+        `dailyProfitMap에 ${sellDate} 날짜의 매도 수익 ${totalProfitFromSells} (${
+          totalProfitFromSells > 0 ? "이익" : "손실"
+        }) 저장됨`
       );
     }
 
@@ -403,14 +415,19 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     // 모든 트레이드를 순회하며 매도일과 일치하는 트레이드의 dailyProfit 업데이트
     trades.forEach((trade) => {
       const sellDateProfit = sellDateProfits[trade.buyDate] || 0;
-      if (sellDateProfit > 0) {
+      // 수익이 양수인 경우만 처리하는 조건 제거 (음수 수익도 반영)
+      if (sellDateProfit !== 0) {
         // 이미 dailyProfit이 있는 경우 매도 수익이 포함되어 있는지 확인
         const currentDailyProfit = trade.dailyProfit || 0;
 
         // 매도 수익이 이미 포함되어 있지 않다고 가정하고 업데이트
         trade.dailyProfit = currentDailyProfit + sellDateProfit;
         console.log(
-          `트레이드 #${trade.tradeIndex} (${trade.buyDate}) dailyProfit 업데이트: ${currentDailyProfit} -> ${trade.dailyProfit}`
+          `트레이드 #${trade.tradeIndex} (${
+            trade.buyDate
+          }) dailyProfit 업데이트: ${currentDailyProfit} -> ${
+            trade.dailyProfit
+          } (${sellDateProfit > 0 ? "이익" : "손실"})`
         );
 
         // 매도일별 수익을 0으로 설정하여 중복 계산 방지
@@ -446,10 +463,13 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     // 3. 모든 트레이드를 순회하며 매도일과 일치하는 트레이드의 dailyProfit 설정
     trades.forEach((trade) => {
       const sellDateProfit = sellDateProfits[trade.buyDate] || 0;
-      if (sellDateProfit > 0) {
+      // 수익이 양수인 경우만 처리하는 조건 제거 (음수 수익도 반영)
+      if (sellDateProfit !== 0) {
         trade.dailyProfit = sellDateProfit;
         console.log(
-          `트레이드 #${trade.tradeIndex} (${trade.buyDate}) dailyProfit 설정: ${trade.dailyProfit}`
+          `트레이드 #${trade.tradeIndex} (${trade.buyDate}) dailyProfit 설정: ${
+            trade.dailyProfit
+          } (${sellDateProfit > 0 ? "이익" : "손실"})`
         );
 
         // 매도일별 수익을 0으로 설정하여 중복 계산 방지
@@ -779,7 +799,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                   } -> ${
                     (existingYesterdayTrade.dailyProfit || 0) +
                     yesterdayProfitFromSells
-                  }`
+                  } (${yesterdayProfitFromSells > 0 ? "이익" : "손실"})`
                 );
                 existingYesterdayTrade.dailyProfit =
                   (existingYesterdayTrade.dailyProfit || 0) +
@@ -1009,11 +1029,13 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
           }
 
           // 오늘 매도된 트레이드들의 수익을 오늘 트레이드의 dailyProfit에 추가
-          if (todayProfitFromSells > 0) {
+          if (todayProfitFromSells !== 0) {
             todayTrade.dailyProfit =
               (todayTrade.dailyProfit || 0) + todayProfitFromSells;
             console.log(
-              `오늘 트레이드의 dailyProfit 업데이트: ${todayTrade.dailyProfit}`
+              `오늘 트레이드의 dailyProfit 업데이트: ${
+                todayTrade.dailyProfit
+              } (${todayProfitFromSells > 0 ? "이익" : "손실"})`
             );
           }
 
