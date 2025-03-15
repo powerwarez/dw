@@ -381,7 +381,7 @@ const TradeCalculator: React.FC<TradeCalculatorProps> = ({
           >
             오늘의 매도
           </h2>
-          {yesterdaySell && (
+          {yesterdaySell && yesterdaySell.quantity > 0 ? (
             <div
               className={`bg-gray-700 ${
                 isMobile ? "p-3 mobile-p-3" : "p-4"
@@ -456,68 +456,75 @@ const TradeCalculator: React.FC<TradeCalculatorProps> = ({
                 </div>
               </div>
             </div>
-          )}
+          ) : null}
 
-          {zeroDayTrades && zeroDayTrades.length > 0 && (
+          {zeroDayTrades &&
+          zeroDayTrades.length > 0 &&
+          zeroDayTrades.some((trade) => trade.quantity > 0) ? (
             <div
               className={`bg-gray-700 ${
                 isMobile ? "p-3 mobile-p-3" : "p-4"
               } rounded flex justify-around`}
             >
-              {zeroDayTrades.map((trade, idx) => (
-                <div
-                  key={idx}
-                  className={`flex flex-row items-center ${
-                    isMobile ? "space-x-4 mobile-space-x-4" : "space-x-8"
-                  }`}
-                >
-                  <div className="flex flex-col items-center">
-                    <h3
-                      className={`${
-                        isMobile
-                          ? "text-base mobile-text-sm mobile-mb-2"
-                          : "text-lg mb-2"
-                      }`}
-                    >
-                      수량
-                    </h3>
-                    <p
-                      className={`${
-                        isMobile ? "text-base mobile-text-lg" : "text-xl"
-                      } font-bold text-blue-400`}
-                    >
-                      {trade.quantity}주
-                    </p>
+              {zeroDayTrades
+                .filter((trade) => trade.quantity > 0)
+                .map((trade, idx) => (
+                  <div
+                    key={idx}
+                    className={`flex flex-row items-center ${
+                      isMobile ? "space-x-4 mobile-space-x-4" : "space-x-8"
+                    }`}
+                  >
+                    <div className="flex flex-col items-center">
+                      <h3
+                        className={`${
+                          isMobile
+                            ? "text-base mobile-text-sm mobile-mb-2"
+                            : "text-lg mb-2"
+                        }`}
+                      >
+                        수량
+                      </h3>
+                      <p
+                        className={`${
+                          isMobile ? "text-base mobile-text-lg" : "text-xl"
+                        } font-bold text-blue-400`}
+                      >
+                        {trade.quantity}주
+                      </p>
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <h3
+                        className={`${
+                          isMobile
+                            ? "text-base mobile-text-sm mobile-mb-2"
+                            : "text-lg mb-2"
+                        }`}
+                      >
+                        기간
+                      </h3>
+                      <p
+                        className={`${
+                          isMobile ? "text-base mobile-text-lg" : "text-xl"
+                        } font-bold text-blue-400`}
+                      >
+                        MOC
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex flex-col items-center">
-                    <h3
-                      className={`${
-                        isMobile
-                          ? "text-base mobile-text-sm mobile-mb-2"
-                          : "text-lg mb-2"
-                      }`}
-                    >
-                      기간
-                    </h3>
-                    <p
-                      className={`${
-                        isMobile ? "text-base mobile-text-lg" : "text-xl"
-                      } font-bold text-blue-400`}
-                    >
-                      MOC
-                    </p>
-                  </div>
-                </div>
-              ))}
+                ))}
             </div>
-          )}
-          {!yesterdaySell && (!zeroDayTrades || zeroDayTrades.length === 0) && (
-            <div className="text-center text-white p-4">
-              <p className={isMobile ? "mobile-text-sm" : ""}>
-                오늘 매도는 없습니다
-              </p>
-            </div>
-          )}
+          ) : null}
+          {(!yesterdaySell || yesterdaySell.quantity <= 0) &&
+            (!zeroDayTrades ||
+              zeroDayTrades.length === 0 ||
+              !zeroDayTrades.some((trade) => trade.quantity > 0)) && (
+              <div className="text-center text-white p-4">
+                <p className={isMobile ? "mobile-text-sm" : ""}>
+                  오늘 매도는 없습니다
+                </p>
+              </div>
+            )}
         </div>
       </div>
     </div>
