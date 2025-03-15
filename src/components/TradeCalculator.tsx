@@ -263,7 +263,7 @@ const TradeCalculator: React.FC<TradeCalculatorProps> = ({
         <div
           className={`bg-gray-700 ${
             isMobile ? "p-3 mobile-p-3" : "p-4"
-          } rounded`}
+          } rounded text-center`}
         >
           <h3
             className={`${
@@ -283,7 +283,7 @@ const TradeCalculator: React.FC<TradeCalculatorProps> = ({
         <div
           className={`bg-gray-700 ${
             isMobile ? "p-3 mobile-p-3" : "p-4"
-          } rounded`}
+          } rounded text-center`}
         >
           <h3
             className={`${
@@ -303,7 +303,7 @@ const TradeCalculator: React.FC<TradeCalculatorProps> = ({
         <div
           className={`bg-gray-700 ${
             isMobile ? "p-3 mobile-p-3" : "p-4"
-          } rounded`}
+          } rounded text-center`}
         >
           <h3
             className={`${
