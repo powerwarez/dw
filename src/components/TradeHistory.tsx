@@ -498,8 +498,58 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
           : 0) + 1;
       let blockCount = 0;
 
+      // 마지막 시드 업데이트 날짜 이후 거래 수 계산
+      const fetchSeedUpdateDates = async () => {
+        if (!userId) return;
+        try {
+          const { data, error } = await supabase
+            .from("dynamicwave")
+            .select("updatedSeed")
+            .eq("user_id", userId)
+            .maybeSingle();
+
+          if (error) {
+            console.error("Error fetching updatedSeed:", error);
+            return;
+          }
+
+          if (
+            data?.updatedSeed &&
+            Array.isArray(data.updatedSeed) &&
+            data.updatedSeed.length > 0
+          ) {
+            // 날짜순으로 정렬
+            const sorted = data.updatedSeed.sort(
+              (
+                a: { date: string; value: number },
+                b: { date: string; value: number }
+              ) => a.date.localeCompare(b.date)
+            );
+
+            // 가장 최근 시드 업데이트 날짜
+            const latestUpdateDate = sorted[sorted.length - 1].date;
+            console.log(`최근 시드 업데이트 날짜: ${latestUpdateDate}`);
+
+            // 마지막 시드 업데이트 이후 거래 수 계산
+            if (initialTrades && initialTrades.length > 0) {
+              const tradesAfterLastUpdate = initialTrades.filter(
+                (trade) => trade.buyDate > latestUpdateDate
+              );
+              blockCount = tradesAfterLastUpdate.length;
+              console.log(
+                `마지막 시드 업데이트(${latestUpdateDate}) 이후 거래 수: ${blockCount}, blockCount: ${blockCount}`
+              );
+            }
+          }
+        } catch (error) {
+          console.error("시드 업데이트 날짜 조회 중 오류:", error);
+        }
+      };
+
       // 시드 업데이트 날짜 초기화 확인
       await initializeUpdatedSeedIfNeeded();
+      // 마지막 시드 업데이트 이후 거래 수 계산
+      await fetchSeedUpdateDates();
 
       if (initialTrades && initialTrades.length > 0) {
         console.log("DB에 존재하는 Trade 내역을 사용합니다.");
@@ -679,10 +729,10 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         if (latestUpdatedSeedDate) {
           // 마지막 시드 업데이트 날짜 이후의 거래 수 계산
           const tradesAfterLastUpdate = newTrades.filter(
-            (trade) => new Date(trade.buyDate) > new Date(latestUpdatedSeedDate)
+            (trade) => trade.buyDate > latestUpdatedSeedDate
           );
 
-          blockCount = tradesAfterLastUpdate.length % 10;
+          blockCount = tradesAfterLastUpdate.length;
           console.log(
             `마지막 시드 업데이트(${latestUpdatedSeedDate}) 이후 거래 수: ${tradesAfterLastUpdate.length}, blockCount: ${blockCount}`
           );
@@ -924,65 +974,32 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         }
       }
 
-      // 오늘 날짜 계산
-      const currentDate = new Date();
-      const currentDateStr = currentDate.toISOString().split("T")[0];
+      // 오늘 날짜에 대한 거래 생성
+      const currentDateStr = new Date().toISOString().split("T")[0];
       console.log(`오늘 날짜: ${currentDateStr}`);
 
-      // 오늘 날짜의 트레이드가 이미 있는지 확인
+      // 오늘 날짜에 이미 거래가 있는지 확인
       const existingCurrentDateTrades = newTrades.filter(
         (trade) => trade.buyDate === currentDateStr
       );
-      console.log(
-        `오늘 날짜의 기존 트레이드 수: ${existingCurrentDateTrades.length}`
-      );
 
       // 오늘 날짜의 종가 데이터가 있는지 확인
-      const currentDateClosingData = closingPrices.find(
+      const currentDatePriceEntry = closingPrices.find(
         (price) => price.date === currentDateStr
       );
-      console.log(
-        `오늘 종가 데이터 존재 여부: ${
-          currentDateClosingData ? "있음" : "없음"
-        }`
-      );
-      if (currentDateClosingData) {
-        console.log(
-          `오늘 종가 데이터: ${currentDateClosingData.date}, 가격: ${currentDateClosingData.price}`
-        );
-      }
 
-      // 오늘 날짜의 트레이드가 없고, 종가 데이터가 있으면 새 트레이드 생성
-      if (existingCurrentDateTrades.length === 0 && currentDateClosingData) {
-        console.log("오늘 날짜의 새 트레이드 생성 시도");
+      if (
+        currentDatePriceEntry &&
+        existingCurrentDateTrades.length === 0 &&
+        sortedModes.length > 0
+      ) {
+        console.log("오늘 날짜에 새 거래 생성 시도");
 
-        // 오늘 종가로 이전 트레이드들 중 매도 조건을 충족하는 트레이드들 매도 처리
-        const currentPrice = parseFloat(currentDateClosingData.price);
-        console.log(`오늘 종가: ${currentPrice}`);
+        // 오늘 날짜에 대한 모드 찾기
+        const todayMode = findModeForDateNoWait(currentDateStr, sortedModes);
+        console.log(`오늘의 모드: ${todayMode}`);
 
-        // 매도 처리 직접 수행 (createTradeIfNotExists 호출 전에)
-        const hasSoldTrades = processSellConditionsForExistingTrades(
-          newTrades,
-          currentDateStr,
-          currentPrice
-        );
-
-        // 매도 처리 후 DB에 저장 (시드 업데이트 전에 매도 정보가 반영되도록)
-        if (hasSoldTrades) {
-          console.log("오늘 종가로 매도된 트레이드가 있어 DB에 저장합니다.");
-          try {
-            await supabase.from("dynamicwave").upsert({
-              user_id: userId,
-              settings: { ...settings },
-              tradehistory: newTrades,
-              manualFixInfo,
-            });
-            console.log("매도 처리된 트레이드 정보가 DB에 저장되었습니다.");
-          } catch (error) {
-            console.error("매도 처리 후 DB 저장 오류:", error);
-          }
-        }
-
+        // 오늘 날짜에 대한 거래 생성
         const todayTrade = createTradeIfNotExists(
           currentDateStr,
           newTrades,
@@ -1042,24 +1059,13 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
           }
 
           newTrades.push(todayTrade);
-
-          // 날짜순으로 다시 정렬
-          newTrades.sort(
-            (a, b) =>
-              new Date(a.buyDate).getTime() - new Date(b.buyDate).getTime()
-          );
-
           tradeIndex++;
           blockCount++;
-          console.log(
-            `오늘 트레이드 추가 후 blockCount: ${blockCount}, tradeIndex: ${tradeIndex}`
-          );
+          console.log(`오늘 거래 추가 후 blockCount: ${blockCount}`);
 
-          // 블록 카운트가 10이 되면 시드 업데이트
+          // 10거래일마다 시드 업데이트
           if (blockCount === 10) {
-            console.log(
-              `오늘 거래 추가 후 blockCount가 10이 되어 시드 업데이트 실행 (${currentDateStr})`
-            );
+            console.log(`10거래일 완료, 시드 업데이트 실행: ${currentDateStr}`);
             try {
               // 먼저 모든 트레이드의 dailyProfit 업데이트
               console.log(
@@ -1067,19 +1073,18 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
               );
               updateDailyProfitsForAllTrades(newTrades);
 
-              // 시드 업데이트 실행
               console.log(`시드 업데이트 전 현재 시드: ${currentSeed}`);
               console.log(
                 `시드 업데이트에 사용될 거래 수: ${newTrades.length}`
               );
-              console.log(`시드 업데이트 날짜: ${todayTrade.buyDate}`);
+              console.log(`시드 업데이트 날짜: ${currentDateStr}`);
 
               currentSeed = await updateSeedForTrades(
                 newTrades,
                 currentSeed,
-                todayTrade.buyDate
+                currentDateStr
               );
-              blockCount = 0;
+              blockCount = 0; // 시드 업데이트 후 blockCount 초기화
               console.log(`시드 업데이트 후 blockCount 초기화: ${blockCount}`);
 
               // 시드 업데이트 후 DB에 저장
@@ -1328,7 +1333,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                 currentSeed,
                 historicalTrade.buyDate
               );
-              blockCount = 0;
+              blockCount = 0; // 시드 업데이트 후 blockCount 초기화
               console.log(`시드 업데이트 후 blockCount 초기화: ${blockCount}`);
 
               // 시드 업데이트 후 DB에 저장
@@ -1944,18 +1949,28 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
             }`
           );
           setLatestUpdatedSeedDate(latestDate);
+
+          // 마지막 시드 업데이트 이후의 거래 수 계산
+          if (trades && trades.length > 0) {
+            const tradesAfterLastUpdate = trades.filter(
+              (trade) => trade.buyDate > latestDate
+            );
+            console.log(
+              `마지막 시드 업데이트(${latestDate}) 이후 거래 수: ${tradesAfterLastUpdate.length}`
+            );
+          }
         } else {
-          console.log("시드 업데이트 기록이 없거나 빈 배열입니다.");
+          console.log("updatedSeed가 비어 있습니다.");
           setSeedUpdateDates([]);
           setLatestUpdatedSeedDate("");
         }
       } catch (error) {
-        console.error("시드 업데이트 날짜 조회 중 예외 발생:", error);
+        console.error("Error fetching seed update dates:", error);
       }
     }
 
     fetchSeedUpdateDates();
-  }, [userId]);
+  }, [userId, trades]);
 
   useEffect(() => {
     async function fetchManualFixInfo() {
