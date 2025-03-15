@@ -107,6 +107,8 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
   // 아코디언 상태 추가
   const [isTableCollapsed, setIsTableCollapsed] = useState<boolean>(false);
   const [showAllColumns, setShowAllColumns] = useState(false);
+  const [showAllTrades, setShowAllTrades] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   const dailyProfitMap: {
     [date: string]: { totalProfit: number; tradeIndex: number };
@@ -2074,6 +2076,24 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     setIsWithdrawalModalOpen(true);
   };
 
+  // 화면 크기 감지
+  useEffect(() => {
+    const checkIfMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+
+    // 초기 로드 시 체크
+    checkIfMobile();
+
+    // 리사이즈 이벤트 리스너 추가
+    window.addEventListener("resize", checkIfMobile);
+
+    // 컴포넌트 언마운트 시 이벤트 리스너 제거
+    return () => {
+      window.removeEventListener("resize", checkIfMobile);
+    };
+  }, []);
+
   return (
     <div className="bg-gray-800 p-4 rounded">
       <h2 className="text-xl mb-4">거래 내역</h2>
@@ -2100,7 +2120,11 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
             </div>
 
             {/* 테이블 컨테이너에 스타일 적용 */}
-            <div className="overflow-x-auto max-h-[500px] relative">
+            <div
+              className={`overflow-x-auto relative ${
+                !isMobile ? "max-h-[500px]" : ""
+              }`}
+            >
               <style>{`
                 .bg-gray-750 {
                   background-color: #2d3748;
@@ -2159,12 +2183,20 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
 
               {/* 모바일 뷰 토글 버튼 */}
               <div className="mb-2 md:hidden">
-                <button
-                  onClick={() => setShowAllColumns(!showAllColumns)}
-                  className="px-3 py-1 bg-blue-500 text-white rounded text-sm"
-                >
-                  {showAllColumns ? "간략히 보기" : "모든 열 보기"}
-                </button>
+                <div className="flex flex-col space-y-2">
+                  <button
+                    onClick={() => setShowAllColumns(!showAllColumns)}
+                    className="px-3 py-1 bg-blue-500 text-white rounded text-sm"
+                  >
+                    {showAllColumns ? "간략히 보기" : "모든 열 보기"}
+                  </button>
+                  <button
+                    onClick={() => setShowAllTrades(!showAllTrades)}
+                    className="px-3 py-1 bg-green-500 text-white rounded text-sm"
+                  >
+                    {showAllTrades ? "최근 10개만 보기" : "모든 거래 보기"}
+                  </button>
+                </div>
               </div>
 
               <table
@@ -2251,6 +2283,8 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                   {/* 아코디언 기능 적용 - 마지막 행만 표시하거나 모든 행 표시 */}
                   {(isTableCollapsed
                     ? [trades[trades.length - 1]]
+                    : isMobile && !showAllTrades
+                    ? trades.slice(-10)
                     : trades
                   ).map((trade, index) => {
                     // 시드 업데이트 날짜인지 확인
