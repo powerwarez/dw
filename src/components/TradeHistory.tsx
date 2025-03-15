@@ -182,7 +182,14 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     console.log(`${date} 날짜의 현재 가격: ${currentPrice}`);
 
     // 이전 트레이드들 중 매도 조건을 충족하는 트레이드들 매도 처리
-    processSellConditionsForExistingTrades(existingTrades, date, currentPrice);
+    const hasSoldTrades = processSellConditionsForExistingTrades(
+      existingTrades,
+      date,
+      currentPrice
+    );
+    console.log(
+      `${date} 날짜에 매도된 트레이드 여부: ${hasSoldTrades ? "있음" : "없음"}`
+    );
 
     // 전날 종가 가져오기
     const priceIndex = closingPrices.findIndex((price) => price.date === date);
@@ -326,6 +333,9 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
       `${sellDate} 날짜에 매도 조건을 충족하는 트레이드 수: ${tradesToSell.length}`
     );
 
+    // 매도된 트레이드들의 총 수익
+    let totalProfitFromSells = 0;
+
     // 매도 조건을 충족하는 트레이드들 매도 처리
     tradesToSell.forEach((trade) => {
       console.log(
@@ -338,20 +348,27 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
       trade.sellQuantity = trade.quantity;
       trade.profit = (currentPrice - trade.actualBuyPrice) * trade.quantity;
 
+      // 총 수익에 추가
+      totalProfitFromSells += trade.profit || 0;
+
       console.log(
         `트레이드 #${trade.tradeIndex} 매도 완료 - 매도가: ${currentPrice}, 수익: ${trade.profit}`
       );
-
-      // 해당 매도일의 일일 수익에 추가
-      const dailyTrade = trades.find((t) => t.buyDate === sellDate);
-      if (dailyTrade) {
-        dailyTrade.dailyProfit =
-          (dailyTrade.dailyProfit || 0) + (trade.profit || 0);
-        console.log(
-          `${sellDate} 날짜의 일일 수익 업데이트: ${dailyTrade.dailyProfit}`
-        );
-      }
     });
+
+    // 해당 매도일의 일일 수익에 추가
+    const dailyTrade = trades.find((t) => t.buyDate === sellDate);
+    if (dailyTrade) {
+      dailyTrade.dailyProfit =
+        (dailyTrade.dailyProfit || 0) + totalProfitFromSells;
+      console.log(
+        `${sellDate} 날짜의 일일 수익 업데이트: ${dailyTrade.dailyProfit} (매도 수익 추가: ${totalProfitFromSells})`
+      );
+    } else {
+      console.log(
+        `${sellDate} 날짜의 트레이드가 아직 없습니다. 이 날짜의 트레이드가 생성될 때 매도 수익(${totalProfitFromSells})이 반영될 것입니다.`
+      );
+    }
 
     return true; // 매도된 트레이드가 있음을 반환
   };
@@ -434,7 +451,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
             "중복 트레이드가 감지되어 제거되었습니다. DB를 업데이트합니다."
           );
 
-          // 정렬된 트레이드 배열 생성
+          // 정렬된 트레이드 배열 생성 - 날짜 기준으로 정렬
           const sortedUniqueTrades = [...uniqueTrades].sort(
             (a, b) =>
               new Date(a.buyDate).getTime() - new Date(b.buyDate).getTime()
@@ -454,10 +471,18 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
             newTrades = sortedUniqueTrades;
           } catch (error) {
             console.error("중복 제거 후 DB 업데이트 실패:", error);
-            newTrades = [...initialTrades]; // 실패 시 원래 트레이드 사용
+            // 실패 시 원래 트레이드를 날짜순으로 정렬하여 사용
+            newTrades = [...initialTrades].sort(
+              (a, b) =>
+                new Date(a.buyDate).getTime() - new Date(b.buyDate).getTime()
+            );
           }
         } else {
-          newTrades = [...initialTrades];
+          // 중복이 없더라도 날짜순으로 정렬
+          newTrades = [...initialTrades].sort(
+            (a, b) =>
+              new Date(a.buyDate).getTime() - new Date(b.buyDate).getTime()
+          );
         }
 
         // 남은 날짜가 0이거나 -1인 거래 처리
@@ -618,6 +643,32 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
               }
             }
 
+            // 어제 날짜에 매도된 트레이드들의 수익 계산
+            const soldTradesYesterday = newTrades.filter(
+              (trade) =>
+                trade.sellDate === yesterdayStr && trade.profit !== undefined
+            );
+
+            let yesterdayProfitFromSells = 0;
+            if (soldTradesYesterday.length > 0) {
+              yesterdayProfitFromSells = soldTradesYesterday.reduce(
+                (sum, trade) => sum + (trade.profit || 0),
+                0
+              );
+              console.log(
+                `어제(${yesterdayStr}) 매도된 트레이드들의 수익 합계: ${yesterdayProfitFromSells} (${soldTradesYesterday.length}개 트레이드)`
+              );
+              console.log(
+                `매도된 트레이드 목록:`,
+                soldTradesYesterday.map((t) => ({
+                  tradeIndex: t.tradeIndex,
+                  buyDate: t.buyDate,
+                  sellDate: t.sellDate,
+                  profit: t.profit,
+                }))
+              );
+            }
+
             // 어제 날짜의 종가 데이터가 있으면 새 거래 생성
             const newYesterdayTrade = createTradeIfNotExists(
               yesterdayStr,
@@ -636,10 +687,25 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
             ) {
               console.log("생성된 어제 트레이드:", newYesterdayTrade);
 
-              // 어제 날짜에 매도된 다른 트레이드들의 수익 합계 계산은 이미 createTradeIfNotExists에서 수행됨
-              // 중복 계산 방지를 위해 여기서는 추가 계산하지 않음
+              // 어제 매도된 트레이드들의 수익을 어제 트레이드의 dailyProfit에 추가
+              if (yesterdayProfitFromSells > 0) {
+                newYesterdayTrade.dailyProfit =
+                  (newYesterdayTrade.dailyProfit || 0) +
+                  yesterdayProfitFromSells;
+                console.log(
+                  `어제 트레이드의 dailyProfit 업데이트: ${newYesterdayTrade.dailyProfit}`
+                );
+              }
+
               onUpdateYesterdaySell?.(newYesterdayTrade);
               newTrades.push(newYesterdayTrade);
+
+              // 날짜순으로 다시 정렬
+              newTrades.sort(
+                (a, b) =>
+                  new Date(a.buyDate).getTime() - new Date(b.buyDate).getTime()
+              );
+
               setTrades(newTrades);
               onTradesUpdate?.(newTrades);
 
@@ -785,9 +851,40 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         if (todayTrade) {
           console.log("새 오늘 트레이드 생성:", todayTrade);
 
-          // 오늘 날짜에 매도된 다른 트레이드들의 수익 합계 계산은 이미 createTradeIfNotExists에서 수행됨
-          // 중복 계산 방지를 위해 여기서는 추가 계산하지 않음
+          // 오늘 매도된 트레이드들의 수익 계산
+          const soldTradesToday = newTrades.filter(
+            (trade) =>
+              trade.sellDate === currentDateStr && trade.profit !== undefined
+          );
+
+          let todayProfitFromSells = 0;
+          if (soldTradesToday.length > 0) {
+            todayProfitFromSells = soldTradesToday.reduce(
+              (sum, trade) => sum + (trade.profit || 0),
+              0
+            );
+            console.log(
+              `오늘(${currentDateStr}) 매도된 트레이드들의 수익 합계: ${todayProfitFromSells} (${soldTradesToday.length}개 트레이드)`
+            );
+
+            // 오늘 매도된 트레이드들의 수익을 오늘 트레이드의 dailyProfit에 추가
+            if (todayProfitFromSells > 0) {
+              todayTrade.dailyProfit =
+                (todayTrade.dailyProfit || 0) + todayProfitFromSells;
+              console.log(
+                `오늘 트레이드의 dailyProfit 업데이트: ${todayTrade.dailyProfit}`
+              );
+            }
+          }
+
           newTrades.push(todayTrade);
+
+          // 날짜순으로 다시 정렬
+          newTrades.sort(
+            (a, b) =>
+              new Date(a.buyDate).getTime() - new Date(b.buyDate).getTime()
+          );
+
           tradeIndex++;
           blockCount++;
           console.log(
@@ -1027,6 +1124,13 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
           }
 
           newTrades.push(historicalTrade);
+
+          // 날짜순으로 다시 정렬
+          newTrades.sort(
+            (a, b) =>
+              new Date(a.buyDate).getTime() - new Date(b.buyDate).getTime()
+          );
+
           tradeIndex++;
           blockCount++;
 
@@ -1089,8 +1193,13 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
       }
 
       if (JSON.stringify(newTrades) !== JSON.stringify(trades)) {
-        setTrades(newTrades);
-        onTradesUpdate?.(newTrades);
+        // 최종적으로 날짜순으로 정렬하여 상태 업데이트
+        const sortedTrades = [...newTrades].sort(
+          (a, b) =>
+            new Date(a.buyDate).getTime() - new Date(b.buyDate).getTime()
+        );
+        setTrades(sortedTrades);
+        onTradesUpdate?.(sortedTrades);
       }
       const todayStr = new Date().toISOString().split("T")[0];
       const lastTradeSale =
