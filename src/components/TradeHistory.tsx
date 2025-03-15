@@ -106,6 +106,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
   >([]);
   // 아코디언 상태 추가
   const [isTableCollapsed, setIsTableCollapsed] = useState<boolean>(false);
+  const [showAllColumns, setShowAllColumns] = useState(false);
 
   const dailyProfitMap: {
     [date: string]: { totalProfit: number; tradeIndex: number };
@@ -2104,47 +2105,144 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                 .bg-gray-750 {
                   background-color: #2d3748;
                 }
+                
+                /* 모바일 최적화를 위한 스타일 */
+                @media (max-width: 768px) {
+                  .mobile-hidden {
+                    display: none;
+                  }
+                  
+                  .mobile-compact th,
+                  .mobile-compact td {
+                    padding: 4px !important;
+                    font-size: 0.8rem !important;
+                  }
+                  
+                  /* 모바일에서 표시되는 열의 너비 조정 */
+                  .mobile-date-col {
+                    width: 15% !important;
+                  }
+                  
+                  .mobile-mode-col {
+                    width: 10% !important;
+                  }
+                  
+                  .mobile-price-col {
+                    width: 20% !important;
+                  }
+                  
+                  .mobile-profit-col {
+                    width: 20% !important;
+                  }
+                  
+                  .mobile-daily-col {
+                    width: 15% !important;
+                  }
+                  
+                  .mobile-withdrawal-col {
+                    width: 20% !important;
+                  }
+                }
+                
+                /* 테이블 최소 너비 설정 */
+                .trade-table {
+                  min-width: 1000px;
+                }
+                
+                /* 모바일에서 테이블 너비 조정 */
+                @media (max-width: 768px) {
+                  .trade-table.mobile-compact {
+                    min-width: 100% !important;
+                  }
+                }
               `}</style>
-              <table className="w-full">
+
+              {/* 모바일 뷰 토글 버튼 */}
+              <div className="mb-2 md:hidden">
+                <button
+                  onClick={() => setShowAllColumns(!showAllColumns)}
+                  className="px-3 py-1 bg-blue-500 text-white rounded text-sm"
+                >
+                  {showAllColumns ? "간략히 보기" : "모든 열 보기"}
+                </button>
+              </div>
+
+              <table
+                className={`w-full trade-table ${
+                  !showAllColumns ? "mobile-compact" : ""
+                }`}
+              >
                 {/* 고정된 헤더를 위한 스타일 적용 */}
                 <thead className="sticky top-0 bg-gray-800 z-10">
                   <tr>
-                    <th className="px-2 py-3 border-b border-gray-600">
+                    <th className="px-2 py-3 border-b border-gray-600 mobile-date-col">
                       매수 날짜
                     </th>
-                    <th className="px-2 py-3 border-b border-gray-600">모드</th>
-                    <th className="px-2 py-3 border-b border-gray-600">
+                    <th className="px-2 py-3 border-b border-gray-600 mobile-mode-col">
+                      모드
+                    </th>
+                    <th
+                      className={`px-2 py-3 border-b border-gray-600 ${
+                        !showAllColumns ? "mobile-hidden" : ""
+                      }`}
+                    >
                       매수 목표가
                     </th>
-                    <th className="px-2 py-3 border-b border-gray-600">
+                    <th className="px-2 py-3 border-b border-gray-600 mobile-price-col">
                       실제 매수가
                     </th>
-                    <th className="px-2 py-3 border-b border-gray-600">수량</th>
-                    <th className="px-2 py-3 border-b border-gray-600">
+                    <th
+                      className={`px-2 py-3 border-b border-gray-600 ${
+                        !showAllColumns ? "mobile-hidden" : ""
+                      }`}
+                    >
+                      수량
+                    </th>
+                    <th
+                      className={`px-2 py-3 border-b border-gray-600 ${
+                        !showAllColumns ? "mobile-hidden" : ""
+                      }`}
+                    >
                       매도 목표가
                     </th>
-                    <th className="px-2 py-3 border-b border-gray-600">
+                    <th
+                      className={`px-2 py-3 border-b border-gray-600 ${
+                        !showAllColumns ? "mobile-hidden" : ""
+                      }`}
+                    >
                       매도 날짜
                     </th>
                     <th className="px-2 py-3 border-b border-gray-600">
                       실제 매도가
                     </th>
-                    <th className="px-2 py-3 border-b border-gray-600">
+                    <th
+                      className={`px-2 py-3 border-b border-gray-600 ${
+                        !showAllColumns ? "mobile-hidden" : ""
+                      }`}
+                    >
                       매도 수량
                     </th>
-                    <th className="px-2 py-3 border-b border-gray-600">
+                    <th
+                      className={`px-2 py-3 border-b border-gray-600 ${
+                        !showAllColumns ? "mobile-hidden" : ""
+                      }`}
+                    >
                       남은 수량
                     </th>
-                    <th className="px-2 py-3 border-b border-gray-600">
+                    <th className="px-2 py-3 border-b border-gray-600 mobile-profit-col">
                       수익금
                     </th>
-                    <th className="px-2 py-3 border-b border-gray-600">
+                    <th
+                      className={`px-2 py-3 border-b border-gray-600 ${
+                        !showAllColumns ? "mobile-hidden" : ""
+                      }`}
+                    >
                       남은 날짜
                     </th>
-                    <th className="px-2 py-3 border-b border-gray-600">
+                    <th className="px-2 py-3 border-b border-gray-600 mobile-daily-col">
                       당일손익
                     </th>
-                    <th className="px-2 py-3 border-b border-gray-600">
+                    <th className="px-2 py-3 border-b border-gray-600 mobile-withdrawal-col">
                       출금액
                     </th>
                   </tr>
@@ -2206,19 +2304,35 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                             {trade.mode === "safe" ? "안" : "공"}
                           </span>
                         </td>
-                        <td className="px-2 py-2 border-b border-gray-600">
+                        <td
+                          className={`px-2 py-2 border-b border-gray-600 ${
+                            !showAllColumns ? "mobile-hidden" : ""
+                          }`}
+                        >
                           ${trade.targetBuyPrice.toFixed(2)}
                         </td>
                         <td className="px-2 py-2 border-b border-gray-600">
                           ${trade.actualBuyPrice.toFixed(2)}
                         </td>
-                        <td className="px-2 py-2 border-b border-gray-600">
+                        <td
+                          className={`px-2 py-2 border-b border-gray-600 ${
+                            !showAllColumns ? "mobile-hidden" : ""
+                          }`}
+                        >
                           {trade.quantity}
                         </td>
-                        <td className="px-2 py-2 border-b border-gray-600">
+                        <td
+                          className={`px-2 py-2 border-b border-gray-600 ${
+                            !showAllColumns ? "mobile-hidden" : ""
+                          }`}
+                        >
                           ${trade.targetSellPrice.toFixed(2)}
                         </td>
-                        <td className="px-2 py-2 border-b border-gray-600">
+                        <td
+                          className={`px-2 py-2 border-b border-gray-600 ${
+                            !showAllColumns ? "mobile-hidden" : ""
+                          }`}
+                        >
                           {/* 날짜 형식 변경: YYYY-MM-DD -> MM.DD. */}
                           {trade.sellDate
                             ? new Date(trade.sellDate)
@@ -2230,7 +2344,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                             : "-"}
                         </td>
                         <td
-                          className="px-2 py-2 border-b border-gray-600 cursor-pointer"
+                          className="px-2 py-2 border-b border-gray-600 cursor-pointer mobile-price-col"
                           onClick={() => openSellModal(index)}
                         >
                           <div className="flex items-center space-x-2">
@@ -2241,26 +2355,38 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                             </span>
                           </div>
                         </td>
-                        <td className="px-2 py-2 border-b border-gray-600">
+                        <td
+                          className={`px-2 py-2 border-b border-gray-600 ${
+                            !showAllColumns ? "mobile-hidden" : ""
+                          }`}
+                        >
                           {trade.sellQuantity || "-"}
                         </td>
-                        <td className="px-2 py-2 border-b border-gray-600">
+                        <td
+                          className={`px-2 py-2 border-b border-gray-600 ${
+                            !showAllColumns ? "mobile-hidden" : ""
+                          }`}
+                        >
                           {trade.quantity - (trade.sellQuantity || 0)}
                         </td>
-                        <td className="px-2 py-2 border-b border-gray-600">
+                        <td className="px-2 py-2 border-b border-gray-600 mobile-profit-col">
                           {trade.profit !== undefined
                             ? `$${trade.profit.toFixed(2)}`
                             : "-"}
                         </td>
-                        <td className="px-2 py-2 border-b border-gray-600">
+                        <td
+                          className={`px-2 py-2 border-b border-gray-600 ${
+                            !showAllColumns ? "mobile-hidden" : ""
+                          }`}
+                        >
                           {trade.daysUntilSell}
                         </td>
-                        <td className="px-2 py-2 border-b border-gray-600">
+                        <td className="px-2 py-2 border-b border-gray-600 mobile-daily-col">
                           {trade.dailyProfit !== undefined
                             ? `$${Math.round(trade.dailyProfit)}`
                             : "-"}
                         </td>
-                        <td className="px-2 py-2 border-b border-gray-600">
+                        <td className="px-2 py-2 border-b border-gray-600 mobile-withdrawal-col">
                           {/* 최근 10거래일 시드 업데이트 이후 날짜의 출금액만 수정 가능 */}
                           {isAfterLastUpdate ? (
                             <span
