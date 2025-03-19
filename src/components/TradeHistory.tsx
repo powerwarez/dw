@@ -239,9 +239,19 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
       })`
     );
 
-    const quantity = actualBuyPrice
+    // 1회분 매수에 필요한 금액 계산
+    const minRequiredFund = targetBuyPrice * 1; // 최소 1주 매수 가능한지 확인
+    const isSeedExhausted = currentSeed / (settings.seedDivision || 1) < minRequiredFund;
+    
+    // 시드가 부족하거나 1주도 살 수 없는 경우 매수 불가
+    const quantity = (actualBuyPrice && !isSeedExhausted)
       ? Math.floor(currentSeed / (settings.seedDivision || 1) / targetBuyPrice)
       : 0;
+    
+    if (isSeedExhausted && actualBuyPrice) {
+      console.log(`${date} 날짜에 시드 부족으로 매수 불가 (필요 금액: ${minRequiredFund}, 가용 시드: ${currentSeed / (settings.seedDivision || 1)})`);
+    }
+    
     console.log(
       `${date} 날짜의 매수 수량: ${quantity} (시드: ${currentSeed}, 시드 분할: ${
         settings.seedDivision || 1

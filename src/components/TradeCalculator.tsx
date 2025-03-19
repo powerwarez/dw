@@ -198,9 +198,20 @@ const TradeCalculator: React.FC<TradeCalculatorProps> = ({
           : settings.aggressiveBuyPercent;
       const calculatedTargetBuyPrice =
         previousClosePrice * (1 + buyPercent / 100);
-      const calculatedBuyQuantity = Math.floor(
-        latestSeed / settings.seedDivision / calculatedTargetBuyPrice
-      );
+      
+      // 시드 소진 여부 확인 (최소 1주도 매수 불가능한 경우)
+      const minRequiredFund = calculatedTargetBuyPrice * 1; // 최소 1주 필요 금액
+      const isSeedExhausted = latestSeed / settings.seedDivision < minRequiredFund;
+      
+      // 시드가 부족하면 매수 수량 0으로 설정
+      const calculatedBuyQuantity = isSeedExhausted 
+        ? 0 
+        : Math.floor(latestSeed / settings.seedDivision / calculatedTargetBuyPrice);
+
+      // 시드 부족 로그 출력
+      if (isSeedExhausted) {
+        console.log(`시드 부족으로 매수 불가 (필요 금액: ${minRequiredFund}, 가용 시드: ${latestSeed / settings.seedDivision})`);
+      }
 
       // 상태 업데이트
       setTargetBuyPrice(calculatedTargetBuyPrice);
