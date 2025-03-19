@@ -32,6 +32,7 @@ interface AppSettings {
   withdrawalAmount: number;
   aggressiveBuyPercent: number;
   currentInvestment: number;
+  selectedTicker: string;
   [key: string]: string | number;
 }
 
@@ -50,6 +51,7 @@ const defaultSettings: AppSettings = {
   aggressiveBuyPercent: 5,
   fee: 0.0,
   currentInvestment: 75000,
+  selectedTicker: "SOXL",
 };
 
 const MainPage: React.FC = () => {
@@ -188,11 +190,11 @@ const MainPage: React.FC = () => {
       const { data, error } = await supabase
         .from("stock_prices")
         .select("prices")
-        .eq("ticker", "SOXL")
+        .eq("ticker", settings?.selectedTicker || "SOXL")
         .single();
 
       if (error) {
-        console.error("Error fetching SOXL prices:", error);
+        console.error(`Error fetching ${settings?.selectedTicker || "SOXL"} prices:`, error);
         return;
       }
 
@@ -315,6 +317,18 @@ const MainPage: React.FC = () => {
         updatedSettings.currentInvestment =
           typeof value === "number" ? value : +value;
       }
+      
+      // selectedTicker 변경 시 해당 종목에 맞는 매수/매도 퍼센트로 자동 변경
+      if (field === "selectedTicker") {
+        if (value === "TQQQ") {
+          updatedSettings.aggressiveSellPercent = 2;
+          updatedSettings.aggressiveBuyPercent = 4;
+        } else if (value === "SOXL") {
+          updatedSettings.aggressiveSellPercent = 2.5;
+          updatedSettings.aggressiveBuyPercent = 5;
+        }
+      }
+      
       return updatedSettings;
     });
   };
@@ -537,6 +551,14 @@ const MainPage: React.FC = () => {
               {lastMode === "safe" ? "안전 모드" : "공세 모드"}
             </div>
           </div>
+
+          <div className="bg-gray-700 p-4 rounded mb-4">
+            <h3 className="text-lg mb-2">종목</h3>
+            <div className="text-4xl font-bold text-blue-400">
+              {settings.selectedTicker}
+            </div>
+          </div>
+
           <InvestmentSettings
             settings={settings}
             onChange={handleSettingsChange}

@@ -6,7 +6,8 @@ interface InvestmentSettingsProps {
   settings: {
     initialInvestment: number;
     startDate: string;
-    [key: string]: number | string;
+    selectedTicker?: string;
+    [key: string]: number | string | undefined;
   };
   onChange: (field: string, value: number | string) => void;
 }
@@ -18,6 +19,35 @@ const InvestmentSettings: React.FC<InvestmentSettingsProps> = ({
   return (
     <div className="mb-8">
       <h2 className="text-xl mb-4">투자 설정</h2>
+      
+      <div className="mb-4">
+        <label className="text-sm mb-2 block">종목 선택</label>
+        <div className="flex gap-4">
+          <label className="flex items-center">
+            <input
+              type="radio"
+              name="ticker"
+              value="SOXL"
+              checked={settings.selectedTicker === "SOXL"}
+              onChange={() => onChange("selectedTicker", "SOXL")}
+              className="mr-2"
+            />
+            <span>SOXL</span>
+          </label>
+          <label className="flex items-center">
+            <input
+              type="radio"
+              name="ticker"
+              value="TQQQ"
+              checked={settings.selectedTicker === "TQQQ"}
+              onChange={() => onChange("selectedTicker", "TQQQ")}
+              className="mr-2"
+            />
+            <span>TQQQ</span>
+          </label>
+        </div>
+      </div>
+      
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="flex flex-col">
           <label className="text-sm mb-2">초기 투자금</label>
@@ -87,7 +117,8 @@ const InvestmentSettings: React.FC<InvestmentSettingsProps> = ({
         {Object.entries(settings).map(
           ([key, value]) =>
             key !== "initialInvestment" &&
-            key !== "startDate" && (
+            key !== "startDate" &&
+            key !== "selectedTicker" && (
               <div key={key} className="flex flex-col">
                 <label className="text-sm mb-2">{getLabel(key)}</label>
                 <input
@@ -121,6 +152,7 @@ const getLabel = (key: string) => {
     fee: "수수료",
     withdrawalAmount: "인출 금액",
     currentInvestment: "현재 투자금",
+    selectedTicker: "종목 선택",
   };
   return labels[key] || key;
 };
