@@ -22,18 +22,18 @@ const InvestmentSettings: React.FC<InvestmentSettingsProps> = ({
       
       <div className="mb-4">
         <label className="text-sm mb-2 block">종목 선택</label>
-        <div className="flex gap-4">
-          <label className="flex items-center">
-            <input
-              type="radio"
-              name="ticker"
-              value="SOXL"
-              checked={settings.selectedTicker === "SOXL"}
-              onChange={() => onChange("selectedTicker", "SOXL")}
-              className="mr-2"
+        <div className="flex items-center justify-center gap-2">
+          <span className={`text-sm ${settings.selectedTicker === "SOXL" ? "text-blue-400 font-bold" : "text-gray-400"}`}>SOXL</span>
+          <div 
+            className="relative w-14 h-7 bg-gray-700 rounded-full cursor-pointer"
+            onClick={() => onChange("selectedTicker", settings.selectedTicker === "SOXL" ? "TQQQ" : "SOXL")}
+          >
+            <div 
+              className={`absolute top-1 w-5 h-5 rounded-full transition-all duration-300 ${
+                settings.selectedTicker === "SOXL" ? "left-1 bg-blue-400" : "left-8 bg-green-400"
+              }`} 
             />
             <span>SOXL</span>
-          </label>
           <label className="flex items-center">
             <input
               type="radio"
@@ -47,7 +47,7 @@ const InvestmentSettings: React.FC<InvestmentSettingsProps> = ({
           </label>
         </div>
       </div>
-      
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="flex flex-col">
           <label className="text-sm mb-2">초기 투자금</label>
