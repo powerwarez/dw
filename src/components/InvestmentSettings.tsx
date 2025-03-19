@@ -33,21 +33,12 @@ const InvestmentSettings: React.FC<InvestmentSettingsProps> = ({
                 settings.selectedTicker === "SOXL" ? "left-1 bg-blue-400" : "left-8 bg-green-400"
               }`} 
             />
-            <span>SOXL</span>
-          <label className="flex items-center">
-            <input
-              type="radio"
-              name="ticker"
-              value="TQQQ"
-              checked={settings.selectedTicker === "TQQQ"}
-              onChange={() => onChange("selectedTicker", "TQQQ")}
-              className="mr-2"
-            />
-            <span>TQQQ</span>
-          </label>
+          </div>
+          <span className={`text-sm ${settings.selectedTicker === "TQQQ" ? "text-green-400 font-bold" : "text-gray-400"}`}>TQQQ</span>
         </div>
+
       </div>
-      </div>
+      
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="flex flex-col">
           <label className="text-sm mb-2">초기 투자금</label>
