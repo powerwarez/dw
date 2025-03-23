@@ -3,11 +3,9 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { FaSpinner } from "react-icons/fa";
 import supabase from "../utils/supabase";
-import axios from "axios";
 import {
   formatDateToString,
   getTradingDaysBetween,
-  parseStringToDate,
   addTradingDays,
   isTradingDay,
 } from "../utils/dateUtils";
