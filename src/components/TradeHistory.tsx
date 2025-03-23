@@ -2358,7 +2358,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                             {isAfterLastUpdate ? (
                               <span
                                 className={`cursor-pointer hover:text-blue-400 ${
-                                  (index + 1) % 10 === 0
+                                  trade.tradeIndex % 10 === 0
                                     ? "text-red-500 font-bold"
                                     : ""
                                 }`}
@@ -2375,7 +2375,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
                             ) : (
                               <span
                                 className={`${
-                                  (index + 1) % 10 === 0
+                                  trade.tradeIndex % 10 === 0
                                     ? "text-red-500 font-bold"
                                     : ""
                                 }`}
