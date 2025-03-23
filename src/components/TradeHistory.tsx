@@ -3,6 +3,14 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { FaSpinner } from "react-icons/fa";
 import supabase from "../utils/supabase";
+import axios from "axios";
+import {
+  formatDateToString,
+  getTradingDaysBetween,
+  parseStringToDate,
+  addTradingDays,
+  isTradingDay,
+} from "../utils/dateUtils";
 
 export interface PriceEntry {
   date: string;
@@ -241,17 +249,25 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
 
     // 1회분 매수에 필요한 금액 계산
     const minRequiredFund = targetBuyPrice * 1; // 최소 1주 매수 가능한지 확인
-    const isSeedExhausted = currentSeed / (settings.seedDivision || 1) < minRequiredFund;
-    
+    const isSeedExhausted =
+      currentSeed / (settings.seedDivision || 1) < minRequiredFund;
+
     // 시드가 부족하거나 1주도 살 수 없는 경우 매수 불가
-    const quantity = (actualBuyPrice && !isSeedExhausted)
-      ? Math.floor(currentSeed / (settings.seedDivision || 1) / targetBuyPrice)
-      : 0;
-    
+    const quantity =
+      actualBuyPrice && !isSeedExhausted
+        ? Math.floor(
+            currentSeed / (settings.seedDivision || 1) / targetBuyPrice
+          )
+        : 0;
+
     if (isSeedExhausted && actualBuyPrice) {
-      console.log(`${date} 날짜에 시드 부족으로 매수 불가 (필요 금액: ${minRequiredFund}, 가용 시드: ${currentSeed / (settings.seedDivision || 1)})`);
+      console.log(
+        `${date} 날짜에 시드 부족으로 매수 불가 (필요 금액: ${minRequiredFund}, 가용 시드: ${
+          currentSeed / (settings.seedDivision || 1)
+        })`
+      );
     }
-    
+
     console.log(
       `${date} 날짜의 매수 수량: ${quantity} (시드: ${currentSeed}, 시드 분할: ${
         settings.seedDivision || 1
@@ -688,11 +704,18 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
             console.log(
               `남은 날짜가 -1인 거래 발견: ${trade.tradeIndex}, 종가에 매도 처리합니다.`
             );
-            const yesterdayStr = new Date(
-              new Date().setDate(new Date().getDate() - 1)
-            )
-              .toISOString()
-              .split("T")[0];
+            // 이전 거래일 계산 (현재 날짜에서 1 거래일 전)
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const yesterdayDate = new Date(today);
+            yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+
+            // 주말이나 공휴일인 경우 이전 거래일 찾기
+            while (!isTradingDay(yesterdayDate)) {
+              yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+            }
+
+            const yesterdayStr = formatDateToString(yesterdayDate);
 
             // 해당 날짜의 종가 찾기
             const closingPrice = closingPrices.find(
@@ -1417,43 +1440,9 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
 
       // 새로운 트레이드가 생성되면 기존 트레이드의 남은 날짜 업데이트
       const processExistingTrades = () => {
-        // 오늘 날짜
+        console.log("기존 트레이드 처리 중...");
         const today = new Date();
-
-        // 요일 이름 배열 정의
-        const dayNames = ["일", "월", "화", "수", "목", "금", "토"];
-
-        // 중복 트레이드 검사
-        const tradesGroupedByDate = newTrades.reduce((acc, trade) => {
-          if (!acc[trade.buyDate]) {
-            acc[trade.buyDate] = [];
-          }
-          acc[trade.buyDate].push(trade);
-          return acc;
-        }, {} as Record<string, Trade[]>);
-
-        // 중복 트레이드가 있는 날짜 확인
-        Object.entries(tradesGroupedByDate).forEach(([date, trades]) => {
-          if (trades.length > 1) {
-            const dateObj = new Date(date);
-            const dayName = dayNames[dateObj.getDay()];
-            console.log(
-              `경고: ${date}(${dayName})에 ${trades.length}개의 트레이드가 존재합니다.`
-            );
-            trades.forEach((trade, idx) => {
-              console.log(
-                `  - 트레이드 #${idx + 1}: 인덱스=${trade.tradeIndex}, 모드=${
-                  trade.mode
-                }, 매수가=${trade.actualBuyPrice}, 수량=${trade.quantity}`
-              );
-            });
-
-            // 중복 트레이드 발견 시 자동 수정 시도
-            console.log(
-              `중복 트레이드 발견: ${date}. 다음 새로고침 시 자동으로 수정됩니다.`
-            );
-          }
-        });
+        today.setHours(0, 0, 0, 0);
 
         // 기존 트레이드 순회하며 남은 날짜 업데이트
         for (let i = 0; i < newTrades.length; i++) {
@@ -1466,11 +1455,9 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
             continue;
           }
 
-          // 매수일로부터 오늘까지의 일수 계산
+          // 매수일로부터 오늘까지의 거래일 수 계산 (주말과 공휴일 제외)
           const buyDate = new Date(newTrades[i].buyDate);
-          const diffDays = Math.floor(
-            (today.getTime() - buyDate.getTime()) / (1000 * 60 * 60 * 24)
-          );
+          buyDate.setHours(0, 0, 0, 0);
 
           // 모드에 따른 최대 보유일
           const maxDays =
@@ -1478,15 +1465,21 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
               ? settings.safeMaxDays
               : settings.aggressiveMaxDays;
 
-          // 남은 날짜 계산
-          newTrades[i].daysUntilSell = maxDays - diffDays;
+          // 매수일로부터 현재까지의 거래일 수 계산
+          const tradingDaysElapsed = getTradingDaysBetween(buyDate, today);
+
+          // 남은 거래일 수 계산
+          newTrades[i].daysUntilSell = maxDays - tradingDaysElapsed;
+
+          console.log(
+            `트레이드 #${newTrades[i].tradeIndex} - 매수일: ${newTrades[i].buyDate}, 최대 보유일: ${maxDays}, 경과 거래일: ${tradingDaysElapsed}, 남은 날짜: ${newTrades[i].daysUntilSell}`
+          );
 
           // 남은 날짜가 -1 이하인 경우 (보유 기간 초과)
           if (newTrades[i].daysUntilSell < 0) {
-            // 매도일 계산 (매수일 + 최대 보유일)
-            const sellDate = new Date(buyDate);
-            sellDate.setDate(sellDate.getDate() + maxDays);
-            const sellDateStr = sellDate.toISOString().split("T")[0];
+            // 매도일 계산 (매수일 + 최대 거래일)
+            const sellDate = addTradingDays(buyDate, maxDays);
+            const sellDateStr = formatDateToString(sellDate);
 
             // 해당 날짜의 종가 찾기
             const closingPrice = closingPrices.find(

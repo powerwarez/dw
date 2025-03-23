@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import supabase from "../utils/supabase";
+import { addTradingDays } from "../utils/dateUtils";
 
 interface Settings {
   safeMaxDays: number;
@@ -198,19 +199,26 @@ const TradeCalculator: React.FC<TradeCalculatorProps> = ({
           : settings.aggressiveBuyPercent;
       const calculatedTargetBuyPrice =
         previousClosePrice * (1 + buyPercent / 100);
-      
+
       // 시드 소진 여부 확인 (최소 1주도 매수 불가능한 경우)
       const minRequiredFund = calculatedTargetBuyPrice * 1; // 최소 1주 필요 금액
-      const isSeedExhausted = latestSeed / settings.seedDivision < minRequiredFund;
-      
+      const isSeedExhausted =
+        latestSeed / settings.seedDivision < minRequiredFund;
+
       // 시드가 부족하면 매수 수량 0으로 설정
-      const calculatedBuyQuantity = isSeedExhausted 
-        ? 0 
-        : Math.floor(latestSeed / settings.seedDivision / calculatedTargetBuyPrice);
+      const calculatedBuyQuantity = isSeedExhausted
+        ? 0
+        : Math.floor(
+            latestSeed / settings.seedDivision / calculatedTargetBuyPrice
+          );
 
       // 시드 부족 로그 출력
       if (isSeedExhausted) {
-        console.log(`시드 부족으로 매수 불가 (필요 금액: ${minRequiredFund}, 가용 시드: ${latestSeed / settings.seedDivision})`);
+        console.log(
+          `시드 부족으로 매수 불가 (필요 금액: ${minRequiredFund}, 가용 시드: ${
+            latestSeed / settings.seedDivision
+          })`
+        );
       }
 
       // 상태 업데이트
@@ -455,10 +463,9 @@ const TradeCalculator: React.FC<TradeCalculatorProps> = ({
                     } font-bold text-blue-400`}
                   >
                     ~
-                    {new Date(
-                      new Date().setDate(
-                        new Date().getDate() + yesterdaySell.daysUntilSell + 1
-                      )
+                    {addTradingDays(
+                      new Date(),
+                      yesterdaySell.daysUntilSell
                     ).toLocaleDateString("ko-KR", {
                       month: "2-digit",
                       day: "2-digit",
