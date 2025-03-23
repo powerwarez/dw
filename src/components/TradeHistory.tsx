@@ -90,17 +90,10 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
   const [cachedModes, setCachedModes] = useState<ModeItem[] | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalTradeIndex, setModalTradeIndex] = useState<number | null>(null);
-  const [modalSellDate, setModalSellDate] = useState<string>("");
-  const [modalSellPrice, setModalSellPrice] = useState<number | undefined>(
-    undefined
-  );
-  const [modalSellQuantity, setModalSellQuantity] = useState<
-    number | undefined
-  >(undefined);
+  const [modalSellDate, setModalSellDate] = useState("");
+  const [modalSellPrice, setModalSellPrice] = useState<number>(0);
+  const [modalSellQuantity, setModalSellQuantity] = useState<number>(0);
   const [isWithdrawalModalOpen, setIsWithdrawalModalOpen] = useState(false);
-  const [modalWithdrawalTradeIndex, setModalWithdrawalTradeIndex] = useState<
-    number | null
-  >(null);
   const [modalWithdrawalAmount, setModalWithdrawalAmount] = useState<number>(0);
   const [latestUpdatedSeedDate, setLatestUpdatedSeedDate] =
     useState<string>("");
@@ -115,6 +108,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
   const [showAllColumns, setShowAllColumns] = useState(false);
   const [showAllTrades, setShowAllTrades] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const dailyProfitMap: {
     [date: string]: { totalProfit: number; tradeIndex: number };
@@ -512,6 +506,14 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
     return trades;
   };
 
+  // 정렬 함수 추가 - 재사용을 위한 유틸리티 함수
+  const sortTradesByBuyDate = (trades: Trade[]): Trade[] => {
+    return [...trades].sort((a, b) => {
+      // buyDate 기준으로 정렬 (날짜순)
+      return new Date(a.buyDate).getTime() - new Date(b.buyDate).getTime();
+    });
+  };
+
   useEffect(() => {
     const fetchTrades = async () => {
       let newTrades: Trade[] = [];
@@ -641,10 +643,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
           );
 
           // 정렬된 트레이드 배열 생성 - 날짜 기준으로 정렬
-          const sortedUniqueTrades = [...uniqueTrades].sort(
-            (a, b) =>
-              new Date(a.buyDate).getTime() - new Date(b.buyDate).getTime()
-          );
+          const sortedUniqueTrades = sortTradesByBuyDate(uniqueTrades);
 
           // 중복 계산 방지를 위해 dailyProfit 재계산
           const recalculatedTrades =
@@ -674,10 +673,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
           }
         } else {
           // 중복이 없더라도 날짜순으로 정렬
-          newTrades = [...initialTrades].sort(
-            (a, b) =>
-              new Date(a.buyDate).getTime() - new Date(b.buyDate).getTime()
-          );
+          newTrades = sortTradesByBuyDate(initialTrades);
           // 중복 계산 방지를 위해 dailyProfit 재계산
           newTrades = recalculateDailyProfits(newTrades);
         }
@@ -927,10 +923,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
               newTrades.push(newYesterdayTrade);
 
               // 날짜순으로 다시 정렬
-              newTrades.sort(
-                (a, b) =>
-                  new Date(a.buyDate).getTime() - new Date(b.buyDate).getTime()
-              );
+              newTrades = sortTradesByBuyDate(newTrades);
 
               setTrades(newTrades);
               onTradesUpdate?.(newTrades);
@@ -1337,10 +1330,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
           newTrades.push(historicalTrade);
 
           // 날짜순으로 다시 정렬
-          newTrades.sort(
-            (a, b) =>
-              new Date(a.buyDate).getTime() - new Date(b.buyDate).getTime()
-          );
+          newTrades = sortTradesByBuyDate(newTrades);
 
           tradeIndex++;
           blockCount++;
@@ -1411,10 +1401,7 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
 
       if (JSON.stringify(newTrades) !== JSON.stringify(trades)) {
         // 최종적으로 날짜순으로 정렬하여 상태 업데이트
-        const sortedTrades = [...newTrades].sort(
-          (a, b) =>
-            new Date(a.buyDate).getTime() - new Date(b.buyDate).getTime()
-        );
+        const sortedTrades = sortTradesByBuyDate(newTrades);
 
         // 중복 계산 방지를 위해 dailyProfit 재계산
         const finalTrades = recalculateDailyProfits(sortedTrades);
@@ -1834,78 +1821,34 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
       sellQuantity: modalSellQuantity,
     };
     const newTrades = [...trades];
+    newTrades[index] = updatedTrade;
 
-    if (modalSellPrice !== undefined && modalSellQuantity !== undefined) {
-      // 이전 매도 정보 저장
-      const previousSellDate = trades[index].sellDate;
-      const previousProfit = trades[index].profit || 0;
-
-      // 새로운 수익 계산
+    // 수익 계산
+    if (updatedTrade.actualSellPrice && updatedTrade.sellQuantity) {
       updatedTrade.profit =
-        (modalSellPrice - updatedTrade.actualBuyPrice) * modalSellQuantity;
-
-      console.log(
-        `매도 정보 수정 - 트레이드 #${updatedTrade.tradeIndex}, 이전 매도일: ${previousSellDate}, 새 매도일: ${modalSellDate}`
-      );
-      console.log(
-        `이전 수익: ${previousProfit}, 새 수익: ${updatedTrade.profit}`
-      );
-
-      // 이전 매도일이 있고, 변경된 경우 이전 매도일의 일일 수익에서 이전 수익 제거
-      if (previousSellDate && previousSellDate !== modalSellDate) {
-        const previousDailyTradeIndex = newTrades.findIndex(
-          (t) => t.buyDate === previousSellDate
-        );
-
-        if (previousDailyTradeIndex !== -1) {
-          const previousDailyTrade = newTrades[previousDailyTradeIndex];
-          const updatedDailyProfit =
-            (previousDailyTrade.dailyProfit || 0) - previousProfit;
-
-          newTrades[previousDailyTradeIndex] = {
-            ...previousDailyTrade,
-            dailyProfit: updatedDailyProfit,
-          };
-
-          console.log(
-            `이전 매도일(${previousSellDate})의 일일 수익 업데이트: ${previousDailyTrade.dailyProfit} -> ${updatedDailyProfit}`
-          );
-        }
-      }
-
-      // 새 매도일의 일일 수익에 새 수익 추가
-      const dailyTradeIndex = newTrades.findIndex(
-        (t) => t.buyDate === modalSellDate
-      );
-
-      if (dailyTradeIndex !== -1) {
-        const dailyTrade = newTrades[dailyTradeIndex];
-        const updatedDailyProfit =
-          (dailyTrade.dailyProfit || 0) + updatedTrade.profit;
-
-        newTrades[dailyTradeIndex] = {
-          ...dailyTrade,
-          dailyProfit: updatedDailyProfit,
-        };
-
-        console.log(
-          `새 매도일(${modalSellDate})의 일일 수익 업데이트: ${dailyTrade.dailyProfit} -> ${updatedDailyProfit}`
-        );
-      } else {
-        console.log(
-          `새 매도일(${modalSellDate})에 해당하는 트레이드가 없습니다. 일일 수익 업데이트 불가.`
-        );
-        updatedTrade.dailyProfit = updatedTrade.profit;
-      }
+        (updatedTrade.actualSellPrice - updatedTrade.actualBuyPrice) *
+        updatedTrade.sellQuantity;
     }
 
-    newTrades[index] = updatedTrade;
-    setTrades(newTrades);
-    await onSellInfoUpdate(updatedTrade.tradeIndex, {
-      sellDate: modalSellDate,
-      sellPrice: modalSellPrice,
-      sellQuantity: modalSellQuantity,
-    });
+    // 최종적으로 날짜순으로 정렬
+    const sortedTrades = sortTradesByBuyDate(newTrades);
+    setTrades(sortedTrades);
+    onTradesUpdate?.(sortedTrades);
+
+    // DB 업데이트
+    try {
+      setIsLoading(true);
+      await onSellInfoUpdate(index, {
+        sellDate: modalSellDate,
+        sellPrice: modalSellPrice,
+        sellQuantity: modalSellQuantity,
+      });
+      setIsLoading(false);
+    } catch (error) {
+      console.error("매도 정보 업데이트 실패:", error);
+      setIsLoading(false);
+    }
+
     setIsModalOpen(false);
   };
 
@@ -1997,82 +1940,53 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
   }, [userId]);
 
   const handleWithdrawalModalConfirm = async () => {
-    if (modalWithdrawalTradeIndex === null) return;
-    const trade = trades[modalWithdrawalTradeIndex];
-    const updatedTrades = trades.map((t) =>
-      t.tradeIndex === trade.tradeIndex
-        ? {
-            ...t,
-            withdrawalAmount: modalWithdrawalAmount,
-            actualwithdrawalAmount: modalWithdrawalAmount,
-            manualFixedWithdrawal: modalWithdrawalAmount,
-          }
-        : t
-    );
-    const key = trade.buyDate;
-    const updatedManualFixInfo = {
-      ...manualFixInfo,
-      [key]: modalWithdrawalAmount,
+    if (modalTradeIndex === null) return;
+    const index = modalTradeIndex;
+    const newTrades = [...trades];
+    newTrades[index] = {
+      ...newTrades[index],
+      manualFixedWithdrawal: modalWithdrawalAmount,
+      actualwithdrawalAmount: modalWithdrawalAmount,
     };
 
+    // 매뉴얼 수정 정보 업데이트
+    const updatedManualFixInfo = {
+      ...manualFixInfo,
+      [newTrades[index].buyDate]: modalWithdrawalAmount,
+    };
+    setManualFixInfo(updatedManualFixInfo);
+
+    // 최종적으로 날짜순으로 정렬
+    const sortedTrades = sortTradesByBuyDate(newTrades);
+    setTrades(sortedTrades);
+    onTradesUpdate?.(sortedTrades);
+
+    // DB 업데이트
     try {
-      // 기존 데이터를 가져옵니다.
-      const { data: existingData, error: fetchError } = await supabase
-        .from("dynamicwave")
-        .select("settings")
-        .eq("user_id", userId)
-        .maybeSingle();
-
-      if (fetchError) {
-        console.error("기존 데이터 가져오기 실패:", fetchError);
-        return;
-      }
-
-      // 기존 settings가 있으면 사용하고, 없으면 기본값으로 빈 객체를 설정합니다.
-      const currentSettings = existingData?.settings || {};
-
-      // 업데이트 시 settings를 포함합니다.
-      const { error } = await supabase.from("dynamicwave").upsert({
+      setIsLoading(true);
+      await supabase.from("dynamicwave").upsert({
         user_id: userId,
-        settings: currentSettings, // 기존 settings 유지
-        tradehistory: updatedTrades,
+        settings: { ...settings },
+        tradehistory: sortedTrades,
         manualFixInfo: updatedManualFixInfo,
       });
-
-      if (error) {
-        console.error("출금액 업데이트 실패:", error);
-      } else {
-        console.log("출금액 업데이트 성공:", modalWithdrawalAmount);
-        setManualFixInfo(updatedManualFixInfo); // 상태 업데이트로 화면 반영
-        setTrades(updatedTrades); // 상태 업데이트로 화면 반영
-      }
+      setIsLoading(false);
     } catch (error) {
-      console.error("출금액 업데이트 예외 발생:", error);
+      console.error("출금액 수정 업데이트 실패:", error);
+      setIsLoading(false);
     }
-    setIsWithdrawalModalOpen(false); // 모달 닫기
+
+    setIsWithdrawalModalOpen(false);
   };
 
   const openWithdrawalModal = (index: number) => {
-    // 최근 10거래일 시드 업데이트 이후 날짜의 출금액만 수정 가능
     const trade = trades[index];
-    const isAfterLastUpdate =
-      latestUpdatedSeedDate &&
-      new Date(trade.buyDate) > new Date(latestUpdatedSeedDate);
-
-    if (!isAfterLastUpdate) {
-      console.log(
-        "최근 10거래일 시드 업데이트 이후 날짜의 출금액만 수정할 수 있습니다."
-      );
-      return;
-    }
-
-    setModalWithdrawalTradeIndex(index);
+    setModalTradeIndex(index);
     setModalWithdrawalAmount(
-      trades[index].actualwithdrawalAmount !== undefined
-        ? trades[index].actualwithdrawalAmount
-        : trades[index].withdrawalAmount !== undefined
-        ? trades[index].withdrawalAmount
-        : 0
+      trade.manualFixedWithdrawal ||
+        trade.actualwithdrawalAmount ||
+        trade.withdrawalAmount ||
+        settings.withdrawalAmount
     );
     setIsWithdrawalModalOpen(true);
   };
@@ -2096,476 +2010,498 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
   }, []);
 
   return (
-    <div className="bg-gray-800 p-4 rounded">
-      <h2 className="text-xl mb-4">거래 내역</h2>
-      <div className="bg-gray-700 p-4 rounded">
-        {trades.length === 0 ? (
-          isModeLoading ? (
-            <div className="text-center text-white p-4">
-              <FaSpinner className="animate-spin w-8 h-8 mx-auto" />
-            </div>
+    <div className="p-4">
+      {isLoading && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
+          <div className="text-white flex flex-col items-center">
+            <FaSpinner className="animate-spin text-4xl mb-2" />
+            <span>처리 중...</span>
+          </div>
+        </div>
+      )}
+
+      <div className="bg-gray-800 rounded-lg shadow-lg p-6">
+        <h2 className="text-xl mb-4">거래 내역</h2>
+        <div className="bg-gray-700 p-4 rounded">
+          {trades.length === 0 ? (
+            isModeLoading ? (
+              <div className="text-center text-white p-4">
+                <FaSpinner className="animate-spin w-8 h-8 mx-auto" />
+              </div>
+            ) : (
+              <p>거래 내역이 없습니다.</p>
+            )
           ) : (
-            <p>거래 내역이 없습니다.</p>
-          )
-        ) : (
-          <div className="relative overflow-x-auto">
-            {/* 아코디언 토글 버튼 */}
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="text-lg font-bold">거래 내역</h3>
-              <button
-                onClick={() => setIsTableCollapsed(!isTableCollapsed)}
-                className="px-3 py-1 bg-gray-600 hover:bg-gray-500 rounded text-sm"
-              >
-                {isTableCollapsed ? "모든 내역 보기" : "마지막 행만 보기"}
-              </button>
-            </div>
-
-            {/* 테이블 컨테이너에 스타일 적용 */}
-            <div
-              className={`overflow-x-auto relative ${
-                !isMobile ? "max-h-[500px]" : ""
-              }`}
-            >
-              <style>{`
-                .bg-gray-750 {
-                  background-color: #2d3748;
-                }
-                
-                /* 모바일 최적화를 위한 스타일 */
-                @media (max-width: 768px) {
-                  .mobile-hidden {
-                    display: none;
-                  }
-                  
-                  .mobile-compact th,
-                  .mobile-compact td {
-                    padding: 4px !important;
-                    font-size: 0.8rem !important;
-                  }
-                  
-                  /* 모바일에서 표시되는 열의 너비 조정 */
-                  .mobile-date-col {
-                    width: 15% !important;
-                  }
-                  
-                  .mobile-mode-col {
-                    width: 10% !important;
-                  }
-                  
-                  .mobile-price-col {
-                    width: 20% !important;
-                  }
-                  
-                  .mobile-profit-col {
-                    width: 20% !important;
-                  }
-                  
-                  .mobile-daily-col {
-                    width: 15% !important;
-                  }
-                  
-                  .mobile-withdrawal-col {
-                    width: 20% !important;
-                  }
-                }
-                
-                /* 테이블 최소 너비 설정 */
-                .trade-table {
-                  min-width: 1000px;
-                }
-                
-                /* 모바일에서 테이블 너비 조정 */
-                @media (max-width: 768px) {
-                  .trade-table.mobile-compact {
-                    min-width: 100% !important;
-                  }
-                }
-              `}</style>
-
-              {/* 모바일 뷰 토글 버튼 */}
-              <div className="mb-2 md:hidden">
-                <div className="flex flex-col space-y-2">
-                  <button
-                    onClick={() => setShowAllColumns(!showAllColumns)}
-                    className="px-3 py-1 bg-blue-500 text-white rounded text-sm"
-                  >
-                    {showAllColumns ? "간략히 보기" : "모든 열 보기"}
-                  </button>
-                  <button
-                    onClick={() => setShowAllTrades(!showAllTrades)}
-                    className="px-3 py-1 bg-green-500 text-white rounded text-sm"
-                  >
-                    {showAllTrades ? "최근 10개만 보기" : "모든 거래 보기"}
-                  </button>
-                </div>
+            <div className="relative overflow-x-auto">
+              {/* 아코디언 토글 버튼 */}
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="text-lg font-bold">거래 내역</h3>
+                <button
+                  onClick={() => setIsTableCollapsed(!isTableCollapsed)}
+                  className="px-3 py-1 bg-gray-600 hover:bg-gray-500 rounded text-sm"
+                >
+                  {isTableCollapsed ? "모든 내역 보기" : "마지막 행만 보기"}
+                </button>
               </div>
 
-              <table
-                className={`w-full trade-table ${
-                  !showAllColumns ? "mobile-compact" : ""
+              {/* 테이블 컨테이너에 스타일 적용 */}
+              <div
+                className={`overflow-x-auto relative ${
+                  !isMobile ? "max-h-[500px]" : ""
                 }`}
               >
-                {/* 고정된 헤더를 위한 스타일 적용 */}
-                <thead className="sticky top-0 bg-gray-800 z-10">
-                  <tr>
-                    <th className="px-2 py-3 border-b border-gray-600 mobile-date-col">
-                      매수 날짜
-                    </th>
-                    <th className="px-2 py-3 border-b border-gray-600 mobile-mode-col">
-                      모드
-                    </th>
-                    <th
-                      className={`px-2 py-3 border-b border-gray-600 ${
-                        !showAllColumns ? "mobile-hidden" : ""
-                      }`}
-                    >
-                      매수 목표가
-                    </th>
-                    <th className="px-2 py-3 border-b border-gray-600 mobile-price-col">
-                      실제 매수가
-                    </th>
-                    <th
-                      className={`px-2 py-3 border-b border-gray-600 ${
-                        !showAllColumns ? "mobile-hidden" : ""
-                      }`}
-                    >
-                      수량
-                    </th>
-                    <th
-                      className={`px-2 py-3 border-b border-gray-600 ${
-                        !showAllColumns ? "mobile-hidden" : ""
-                      }`}
-                    >
-                      매도 목표가
-                    </th>
-                    <th
-                      className={`px-2 py-3 border-b border-gray-600 ${
-                        !showAllColumns ? "mobile-hidden" : ""
-                      }`}
-                    >
-                      매도 날짜
-                    </th>
-                    <th className="px-2 py-3 border-b border-gray-600">
-                      실제 매도가
-                    </th>
-                    <th
-                      className={`px-2 py-3 border-b border-gray-600 ${
-                        !showAllColumns ? "mobile-hidden" : ""
-                      }`}
-                    >
-                      매도 수량
-                    </th>
-                    <th
-                      className={`px-2 py-3 border-b border-gray-600 ${
-                        !showAllColumns ? "mobile-hidden" : ""
-                      }`}
-                    >
-                      남은 수량
-                    </th>
-                    <th className="px-2 py-3 border-b border-gray-600 mobile-profit-col">
-                      수익금
-                    </th>
-                    <th
-                      className={`px-2 py-3 border-b border-gray-600 ${
-                        !showAllColumns ? "mobile-hidden" : ""
-                      }`}
-                    >
-                      남은 날짜
-                    </th>
-                    <th className="px-2 py-3 border-b border-gray-600 mobile-daily-col">
-                      당일손익
-                    </th>
-                    <th className="px-2 py-3 border-b border-gray-600 mobile-withdrawal-col">
-                      출금액
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {/* 아코디언 기능 적용 - 마지막 행만 표시하거나 모든 행 표시 */}
-                  {(isTableCollapsed
-                    ? [trades[trades.length - 1]]
-                    : isMobile && !showAllTrades
-                    ? trades.slice(-10)
-                    : trades
-                  ).map((trade, index) => {
-                    // 시드 업데이트 날짜인지 확인
-                    const isSeedUpdateDate = seedUpdateDates.some(
-                      (item) => item.date === trade.buyDate
-                    );
-                    // 마지막 시드 업데이트 이후의 거래인지 확인
-                    const isAfterLastUpdate =
-                      latestUpdatedSeedDate &&
-                      new Date(trade.buyDate) > new Date(latestUpdatedSeedDate);
+                <style>{`
+                  .bg-gray-750 {
+                    background-color: #2d3748;
+                  }
+                  
+                  /* 모바일 최적화를 위한 스타일 */
+                  @media (max-width: 768px) {
+                    .mobile-hidden {
+                      display: none;
+                    }
+                    
+                    .mobile-compact th,
+                    .mobile-compact td {
+                      padding: 4px !important;
+                      font-size: 0.8rem !important;
+                    }
+                    
+                    /* 모바일에서 표시되는 열의 너비 조정 */
+                    .mobile-date-col {
+                      width: 15% !important;
+                    }
+                    
+                    .mobile-mode-col {
+                      width: 10% !important;
+                    }
+                    
+                    .mobile-price-col {
+                      width: 20% !important;
+                    }
+                    
+                    .mobile-profit-col {
+                      width: 20% !important;
+                    }
+                    
+                    .mobile-daily-col {
+                      width: 15% !important;
+                    }
+                    
+                    .mobile-withdrawal-col {
+                      width: 20% !important;
+                    }
+                  }
+                  
+                  /* 테이블 최소 너비 설정 */
+                  .trade-table {
+                    min-width: 1000px;
+                  }
+                  
+                  /* 모바일에서 테이블 너비 조정 */
+                  @media (max-width: 768px) {
+                    .trade-table.mobile-compact {
+                      min-width: 100% !important;
+                    }
+                  }
+                `}</style>
 
-                    // 홀수행/짝수행 배경색 구분을 위한 클래스 추가
-                    const rowClass =
-                      index % 2 === 0 ? "bg-gray-700" : "bg-gray-750";
+                {/* 모바일 뷰 토글 버튼 */}
+                <div className="mb-2 md:hidden">
+                  <div className="flex flex-col space-y-2">
+                    <button
+                      onClick={() => setShowAllColumns(!showAllColumns)}
+                      className="px-3 py-1 bg-blue-500 text-white rounded text-sm"
+                    >
+                      {showAllColumns ? "간략히 보기" : "모든 열 보기"}
+                    </button>
+                    <button
+                      onClick={() => setShowAllTrades(!showAllTrades)}
+                      className="px-3 py-1 bg-green-500 text-white rounded text-sm"
+                    >
+                      {showAllTrades ? "최근 10개만 보기" : "모든 거래 보기"}
+                    </button>
+                  </div>
+                </div>
 
-                    // 시드 업데이트 날짜인 경우 하이라이트
-                    const seedUpdateClass = isSeedUpdateDate
-                      ? "bg-blue-900"
-                      : "";
-
-                    // 마지막 시드 업데이트 이후의 거래인 경우 하이라이트
-                    const afterUpdateClass = isAfterLastUpdate
-                      ? "border-l-4 border-green-500"
-                      : "";
-
-                    return (
-                      <tr
-                        key={trade.tradeIndex}
-                        className={`${rowClass} ${seedUpdateClass} ${afterUpdateClass} hover:bg-gray-600`}
+                <table
+                  className={`w-full trade-table ${
+                    !showAllColumns ? "mobile-compact" : ""
+                  }`}
+                >
+                  {/* 고정된 헤더를 위한 스타일 적용 */}
+                  <thead className="sticky top-0 bg-gray-800 z-10">
+                    <tr>
+                      <th className="px-2 py-3 border-b border-gray-600 mobile-date-col">
+                        매수 날짜
+                      </th>
+                      <th className="px-2 py-3 border-b border-gray-600 mobile-mode-col">
+                        모드
+                      </th>
+                      <th
+                        className={`px-2 py-3 border-b border-gray-600 ${
+                          !showAllColumns ? "mobile-hidden" : ""
+                        }`}
                       >
-                        <td className="px-2 py-2 border-b border-gray-600">
-                          {/* 날짜 형식 변경: YYYY-MM-DD -> MM.DD. */}
-                          {trade.buyDate
-                            ? new Date(trade.buyDate)
-                                .toLocaleDateString("ko-KR", {
-                                  month: "2-digit",
-                                  day: "2-digit",
-                                })
-                                .replace(/\. /g, ".")
-                            : "-"}
-                        </td>
-                        <td className="px-2 py-2 border-b border-gray-600">
-                          <span
-                            className={`px-2 py-1 rounded ${
-                              trade.mode === "safe"
-                                ? "bg-green-500"
-                                : "bg-red-500"
+                        매수 목표가
+                      </th>
+                      <th className="px-2 py-3 border-b border-gray-600 mobile-price-col">
+                        실제 매수가
+                      </th>
+                      <th
+                        className={`px-2 py-3 border-b border-gray-600 ${
+                          !showAllColumns ? "mobile-hidden" : ""
+                        }`}
+                      >
+                        수량
+                      </th>
+                      <th
+                        className={`px-2 py-3 border-b border-gray-600 ${
+                          !showAllColumns ? "mobile-hidden" : ""
+                        }`}
+                      >
+                        매도 목표가
+                      </th>
+                      <th
+                        className={`px-2 py-3 border-b border-gray-600 ${
+                          !showAllColumns ? "mobile-hidden" : ""
+                        }`}
+                      >
+                        매도 날짜
+                      </th>
+                      <th className="px-2 py-3 border-b border-gray-600">
+                        실제 매도가
+                      </th>
+                      <th
+                        className={`px-2 py-3 border-b border-gray-600 ${
+                          !showAllColumns ? "mobile-hidden" : ""
+                        }`}
+                      >
+                        매도 수량
+                      </th>
+                      <th
+                        className={`px-2 py-3 border-b border-gray-600 ${
+                          !showAllColumns ? "mobile-hidden" : ""
+                        }`}
+                      >
+                        남은 수량
+                      </th>
+                      <th className="px-2 py-3 border-b border-gray-600 mobile-profit-col">
+                        수익금
+                      </th>
+                      <th
+                        className={`px-2 py-3 border-b border-gray-600 ${
+                          !showAllColumns ? "mobile-hidden" : ""
+                        }`}
+                      >
+                        남은 날짜
+                      </th>
+                      <th className="px-2 py-3 border-b border-gray-600 mobile-daily-col">
+                        당일손익
+                      </th>
+                      <th className="px-2 py-3 border-b border-gray-600 mobile-withdrawal-col">
+                        출금액
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {/* 아코디언 기능 적용 - 마지막 행만 표시하거나 모든 행 표시 */}
+                    {(isTableCollapsed
+                      ? [trades[trades.length - 1]]
+                      : isMobile && !showAllTrades
+                      ? trades.slice(-10)
+                      : trades
+                    ).map((trade, index) => {
+                      // 시드 업데이트 날짜인지 확인
+                      const isSeedUpdateDate = seedUpdateDates.some(
+                        (item) => item.date === trade.buyDate
+                      );
+                      // 마지막 시드 업데이트 이후의 거래인지 확인
+                      const isAfterLastUpdate =
+                        latestUpdatedSeedDate &&
+                        new Date(trade.buyDate) >
+                          new Date(latestUpdatedSeedDate);
+
+                      // 홀수행/짝수행 배경색 구분을 위한 클래스 추가
+                      const rowClass =
+                        index % 2 === 0 ? "bg-gray-700" : "bg-gray-750";
+
+                      // 시드 업데이트 날짜인 경우 하이라이트
+                      const seedUpdateClass = isSeedUpdateDate
+                        ? "bg-blue-900"
+                        : "";
+
+                      // 마지막 시드 업데이트 이후의 거래인 경우 하이라이트
+                      const afterUpdateClass = isAfterLastUpdate
+                        ? "border-l-4 border-green-500"
+                        : "";
+
+                      return (
+                        <tr
+                          key={trade.tradeIndex}
+                          className={`${rowClass} ${seedUpdateClass} ${afterUpdateClass} hover:bg-gray-600`}
+                        >
+                          <td className="px-2 py-2 border-b border-gray-600">
+                            {/* 날짜 형식 변경: YYYY-MM-DD -> MM.DD. */}
+                            {trade.buyDate
+                              ? new Date(trade.buyDate)
+                                  .toLocaleDateString("ko-KR", {
+                                    month: "2-digit",
+                                    day: "2-digit",
+                                  })
+                                  .replace(/\. /g, ".")
+                              : "-"}
+                          </td>
+                          <td className="px-2 py-2 border-b border-gray-600">
+                            <span
+                              className={`px-2 py-1 rounded ${
+                                trade.mode === "safe"
+                                  ? "bg-green-500"
+                                  : "bg-red-500"
+                              }`}
+                            >
+                              {/* 모드 표시 변경: aggressive -> 공, safe -> 안 */}
+                              {trade.mode === "safe" ? "안" : "공"}
+                            </span>
+                          </td>
+                          <td
+                            className={`px-2 py-2 border-b border-gray-600 ${
+                              !showAllColumns ? "mobile-hidden" : ""
                             }`}
                           >
-                            {/* 모드 표시 변경: aggressive -> 공, safe -> 안 */}
-                            {trade.mode === "safe" ? "안" : "공"}
-                          </span>
-                        </td>
-                        <td
-                          className={`px-2 py-2 border-b border-gray-600 ${
-                            !showAllColumns ? "mobile-hidden" : ""
-                          }`}
-                        >
-                          ${trade.targetBuyPrice.toFixed(2)}
-                        </td>
-                        <td className="px-2 py-2 border-b border-gray-600">
-                          ${trade.actualBuyPrice.toFixed(2)}
-                        </td>
-                        <td
-                          className={`px-2 py-2 border-b border-gray-600 ${
-                            !showAllColumns ? "mobile-hidden" : ""
-                          }`}
-                        >
-                          {trade.quantity}
-                        </td>
-                        <td
-                          className={`px-2 py-2 border-b border-gray-600 ${
-                            !showAllColumns ? "mobile-hidden" : ""
-                          }`}
-                        >
-                          ${trade.targetSellPrice.toFixed(2)}
-                        </td>
-                        <td
-                          className={`px-2 py-2 border-b border-gray-600 ${
-                            !showAllColumns ? "mobile-hidden" : ""
-                          }`}
-                        >
-                          {trade.sellDate
-                            ? new Date(trade.sellDate)
-                                .toLocaleDateString("ko-KR", {
-                                  month: "2-digit",
-                                  day: "2-digit",
-                                })
-                                .replace(/\. /g, ".")
-                            : "-"}
-                        </td>
-                        <td
-                          className="px-2 py-2 border-b border-gray-600 cursor-pointer mobile-price-col"
-                          onClick={() => openSellModal(index)}
-                        >
-                          <div className="flex items-center space-x-2">
-                            <span>
-                              {trade.actualSellPrice
-                                ? `$${trade.actualSellPrice.toFixed(2)}`
-                                : "-"}
-                            </span>
-                          </div>
-                        </td>
-                        <td
-                          className={`px-2 py-2 border-b border-gray-600 ${
-                            !showAllColumns ? "mobile-hidden" : ""
-                          }`}
-                        >
-                          {trade.sellQuantity || "-"}
-                        </td>
-                        <td
-                          className={`px-2 py-2 border-b border-gray-600 ${
-                            !showAllColumns ? "mobile-hidden" : ""
-                          }`}
-                        >
-                          {trade.quantity - (trade.sellQuantity || 0)}
-                        </td>
-                        <td className="px-2 py-2 border-b border-gray-600 mobile-profit-col">
-                          {trade.profit !== undefined
-                            ? `$${trade.profit.toFixed(2)}`
-                            : "-"}
-                        </td>
-                        <td
-                          className={`px-2 py-2 border-b border-gray-600 ${
-                            !showAllColumns ? "mobile-hidden" : ""
-                          }`}
-                        >
-                          {trade.sellDate ? (
-                            <span className="px-2 py-1 rounded bg-blue-500 text-white">
-                              완
-                            </span>
-                          ) : trade.actualBuyPrice === 0 ? (
-                            "-"
-                          ) : (
-                            trade.daysUntilSell
-                          )}
-                        </td>
-                        <td className="px-2 py-2 border-b border-gray-600 mobile-daily-col">
-                          {trade.dailyProfit !== undefined
-                            ? `$${Math.round(trade.dailyProfit)}`
-                            : "-"}
-                        </td>
-                        <td className="px-2 py-2 border-b border-gray-600 mobile-withdrawal-col">
-                          {/* 최근 10거래일 시드 업데이트 이후 날짜의 출금액만 수정 가능 */}
-                          {isAfterLastUpdate ? (
-                            <span
-                              className={`cursor-pointer hover:text-blue-400 ${
-                                (index + 1) % 10 === 0
-                                  ? "text-red-500 font-bold"
-                                  : ""
-                              }`}
-                              onClick={() => openWithdrawalModal(index)}
-                            >
-                              {trade.actualwithdrawalAmount !== undefined
-                                ? `$${Math.round(trade.actualwithdrawalAmount)}`
-                                : trade.withdrawalAmount !== undefined
-                                ? `$${Math.round(trade.withdrawalAmount)}`
-                                : "-"}
-                            </span>
-                          ) : (
-                            <span
-                              className={`${
-                                (index + 1) % 10 === 0
-                                  ? "text-red-500 font-bold"
-                                  : ""
-                              }`}
-                            >
-                              {trade.actualwithdrawalAmount !== undefined
-                                ? `$${Math.round(trade.actualwithdrawalAmount)}`
-                                : trade.withdrawalAmount !== undefined
-                                ? `$${Math.round(trade.withdrawalAmount)}`
-                                : "-"}
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                            ${trade.targetBuyPrice.toFixed(2)}
+                          </td>
+                          <td className="px-2 py-2 border-b border-gray-600">
+                            ${trade.actualBuyPrice.toFixed(2)}
+                          </td>
+                          <td
+                            className={`px-2 py-2 border-b border-gray-600 ${
+                              !showAllColumns ? "mobile-hidden" : ""
+                            }`}
+                          >
+                            {trade.quantity}
+                          </td>
+                          <td
+                            className={`px-2 py-2 border-b border-gray-600 ${
+                              !showAllColumns ? "mobile-hidden" : ""
+                            }`}
+                          >
+                            ${trade.targetSellPrice.toFixed(2)}
+                          </td>
+                          <td
+                            className={`px-2 py-2 border-b border-gray-600 ${
+                              !showAllColumns ? "mobile-hidden" : ""
+                            }`}
+                          >
+                            {trade.sellDate
+                              ? new Date(trade.sellDate)
+                                  .toLocaleDateString("ko-KR", {
+                                    month: "2-digit",
+                                    day: "2-digit",
+                                  })
+                                  .replace(/\. /g, ".")
+                              : "-"}
+                          </td>
+                          <td
+                            className="px-2 py-2 border-b border-gray-600 cursor-pointer mobile-price-col"
+                            onClick={() => openSellModal(index)}
+                          >
+                            <div className="flex items-center space-x-2">
+                              <span>
+                                {trade.actualSellPrice
+                                  ? `$${trade.actualSellPrice.toFixed(2)}`
+                                  : "-"}
+                              </span>
+                            </div>
+                          </td>
+                          <td
+                            className={`px-2 py-2 border-b border-gray-600 ${
+                              !showAllColumns ? "mobile-hidden" : ""
+                            }`}
+                          >
+                            {trade.sellQuantity || "-"}
+                          </td>
+                          <td
+                            className={`px-2 py-2 border-b border-gray-600 ${
+                              !showAllColumns ? "mobile-hidden" : ""
+                            }`}
+                          >
+                            {trade.quantity - (trade.sellQuantity || 0)}
+                          </td>
+                          <td className="px-2 py-2 border-b border-gray-600 mobile-profit-col">
+                            {trade.profit !== undefined
+                              ? `$${trade.profit.toFixed(2)}`
+                              : "-"}
+                          </td>
+                          <td
+                            className={`px-2 py-2 border-b border-gray-600 ${
+                              !showAllColumns ? "mobile-hidden" : ""
+                            }`}
+                          >
+                            {trade.sellDate ? (
+                              <span className="px-2 py-1 rounded bg-blue-500 text-white">
+                                완
+                              </span>
+                            ) : trade.actualBuyPrice === 0 ? (
+                              "-"
+                            ) : (
+                              trade.daysUntilSell
+                            )}
+                          </td>
+                          <td className="px-2 py-2 border-b border-gray-600 mobile-daily-col">
+                            {trade.dailyProfit !== undefined
+                              ? `$${Math.round(trade.dailyProfit)}`
+                              : "-"}
+                          </td>
+                          <td className="px-2 py-2 border-b border-gray-600 mobile-withdrawal-col">
+                            {/* 최근 10거래일 시드 업데이트 이후 날짜의 출금액만 수정 가능 */}
+                            {isAfterLastUpdate ? (
+                              <span
+                                className={`cursor-pointer hover:text-blue-400 ${
+                                  (index + 1) % 10 === 0
+                                    ? "text-red-500 font-bold"
+                                    : ""
+                                }`}
+                                onClick={() => openWithdrawalModal(index)}
+                              >
+                                {trade.actualwithdrawalAmount !== undefined
+                                  ? `$${Math.round(
+                                      trade.actualwithdrawalAmount
+                                    )}`
+                                  : trade.withdrawalAmount !== undefined
+                                  ? `$${Math.round(trade.withdrawalAmount)}`
+                                  : "-"}
+                              </span>
+                            ) : (
+                              <span
+                                className={`${
+                                  (index + 1) % 10 === 0
+                                    ? "text-red-500 font-bold"
+                                    : ""
+                                }`}
+                              >
+                                {trade.actualwithdrawalAmount !== undefined
+                                  ? `$${Math.round(
+                                      trade.actualwithdrawalAmount
+                                    )}`
+                                  : trade.withdrawalAmount !== undefined
+                                  ? `$${Math.round(trade.withdrawalAmount)}`
+                                  : "-"}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {isModalOpen && (
+          <div className="fixed inset-0 flex items-center justify-center z-50">
+            <div
+              className="absolute inset-0 bg-black opacity-50"
+              onClick={() => setIsModalOpen(false)}
+            ></div>
+            <div className="bg-gray-800 p-4 rounded shadow-lg z-10 w-80">
+              <h3 className="text-lg font-bold mb-4 text-white">
+                매도 정보 수정
+              </h3>
+              <div className="mb-2">
+                <label className="block mb-1 text-white">매도 날짜</label>
+                <DatePicker
+                  selected={modalSellDate ? new Date(modalSellDate) : null}
+                  onChange={(date) =>
+                    setModalSellDate(
+                      date ? date.toISOString().split("T")[0] : ""
+                    )
+                  }
+                  dateFormat="MM-dd"
+                  className="border border-gray-600 p-1 rounded w-full bg-gray-700 text-white"
+                />
+              </div>
+              <div className="mb-2">
+                <label className="block mb-1 text-white">실제 매도가</label>
+                <input
+                  type="number"
+                  value={modalSellPrice !== undefined ? modalSellPrice : ""}
+                  onChange={(e) =>
+                    setModalSellPrice(parseFloat(e.target.value))
+                  }
+                  className="border border-gray-600 p-1 rounded w-full bg-gray-700 text-white"
+                />
+              </div>
+              <div className="mb-2">
+                <label className="block mb-1 text-white">매도 수량</label>
+                <input
+                  type="number"
+                  value={
+                    modalSellQuantity !== undefined ? modalSellQuantity : ""
+                  }
+                  onChange={(e) =>
+                    setModalSellQuantity(parseFloat(e.target.value))
+                  }
+                  className="border border-gray-600 p-1 rounded w-full bg-gray-700 text-white"
+                />
+              </div>
+              <div className="flex justify-end mt-4">
+                <button
+                  onClick={() => setIsModalOpen(false)}
+                  className="bg-gray-600 px-3 py-1 rounded mr-2 text-white"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleModalConfirm}
+                  className="bg-blue-500 text-white px-3 py-1 rounded"
+                >
+                  확인
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {isWithdrawalModalOpen && (
+          <div className="fixed inset-0 flex items-center justify-center z-50">
+            <div
+              className="absolute inset-0 bg-black opacity-50"
+              onClick={() => setIsWithdrawalModalOpen(false)}
+            ></div>
+            <div className="bg-gray-800 p-4 rounded shadow-lg z-10 w-80">
+              <h3 className="text-lg font-bold mb-4 text-white">출금액 수정</h3>
+              <div className="mb-2">
+                <label className="block mb-1 text-white">출금액</label>
+                <input
+                  type="number"
+                  value={modalWithdrawalAmount}
+                  onChange={(e) =>
+                    setModalWithdrawalAmount(parseFloat(e.target.value))
+                  }
+                  className="border border-gray-600 p-1 rounded w-full bg-gray-700 text-white"
+                />
+              </div>
+              <div className="flex justify-end mt-4">
+                <button
+                  onClick={() => setIsWithdrawalModalOpen(false)}
+                  className="bg-gray-600 px-3 py-1 rounded mr-2 text-white"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleWithdrawalModalConfirm}
+                  className="bg-blue-500 text-white px-3 py-1 rounded"
+                >
+                  확인
+                </button>
+              </div>
             </div>
           </div>
         )}
       </div>
-
-      {isModalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center z-50">
-          <div
-            className="absolute inset-0 bg-black opacity-50"
-            onClick={() => setIsModalOpen(false)}
-          ></div>
-          <div className="bg-gray-800 p-4 rounded shadow-lg z-10 w-80">
-            <h3 className="text-lg font-bold mb-4 text-white">
-              매도 정보 수정
-            </h3>
-            <div className="mb-2">
-              <label className="block mb-1 text-white">매도 날짜</label>
-              <DatePicker
-                selected={modalSellDate ? new Date(modalSellDate) : null}
-                onChange={(date) =>
-                  setModalSellDate(date ? date.toISOString().split("T")[0] : "")
-                }
-                dateFormat="MM-dd"
-                className="border border-gray-600 p-1 rounded w-full bg-gray-700 text-white"
-              />
-            </div>
-            <div className="mb-2">
-              <label className="block mb-1 text-white">실제 매도가</label>
-              <input
-                type="number"
-                value={modalSellPrice !== undefined ? modalSellPrice : ""}
-                onChange={(e) => setModalSellPrice(parseFloat(e.target.value))}
-                className="border border-gray-600 p-1 rounded w-full bg-gray-700 text-white"
-              />
-            </div>
-            <div className="mb-2">
-              <label className="block mb-1 text-white">매도 수량</label>
-              <input
-                type="number"
-                value={modalSellQuantity !== undefined ? modalSellQuantity : ""}
-                onChange={(e) =>
-                  setModalSellQuantity(parseFloat(e.target.value))
-                }
-                className="border border-gray-600 p-1 rounded w-full bg-gray-700 text-white"
-              />
-            </div>
-            <div className="flex justify-end mt-4">
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="bg-gray-600 px-3 py-1 rounded mr-2 text-white"
-              >
-                취소
-              </button>
-              <button
-                onClick={handleModalConfirm}
-                className="bg-blue-500 text-white px-3 py-1 rounded"
-              >
-                확인
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {isWithdrawalModalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center z-50">
-          <div
-            className="absolute inset-0 bg-black opacity-50"
-            onClick={() => setIsWithdrawalModalOpen(false)}
-          ></div>
-          <div className="bg-gray-800 p-4 rounded shadow-lg z-10 w-80">
-            <h3 className="text-lg font-bold mb-4 text-white">출금액 수정</h3>
-            <div className="mb-2">
-              <label className="block mb-1 text-white">출금액</label>
-              <input
-                type="number"
-                value={modalWithdrawalAmount}
-                onChange={(e) =>
-                  setModalWithdrawalAmount(parseFloat(e.target.value))
-                }
-                className="border border-gray-600 p-1 rounded w-full bg-gray-700 text-white"
-              />
-            </div>
-            <div className="flex justify-end mt-4">
-              <button
-                onClick={() => setIsWithdrawalModalOpen(false)}
-                className="bg-gray-600 px-3 py-1 rounded mr-2 text-white"
-              >
-                취소
-              </button>
-              <button
-                onClick={handleWithdrawalModalConfirm}
-                className="bg-blue-500 text-white px-3 py-1 rounded"
-              >
-                확인
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
