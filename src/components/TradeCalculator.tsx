@@ -129,7 +129,7 @@ const TradeCalculator: React.FC<TradeCalculatorProps> = ({
 
   // dynamicwave 테이블의 updatedSeed 컬럼 데이터를 조회하여 최신 seed 값을 설정합니다.
   const [latestSeed, setLatestSeed] = useState<number>(
-    settings.currentInvestment
+    settings.currentInvestment || initialInvestment
   );
 
   // 화면 크기 감지
