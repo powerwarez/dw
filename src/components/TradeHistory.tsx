@@ -28,6 +28,7 @@ export interface Settings {
   aggressiveMaxDays: number;
   withdrawalAmount: number;
   currentInvestment: number;
+  initialInvestment: number;
   manualFixInfo?: { [tradeId: string]: number };
   seedUpdates?: { [date: string]: number };
 }
@@ -522,7 +523,14 @@ const TradeHistory: React.FC<TradeHistoryProps> = ({
         ? [...finalModes].sort((a, b) => a.date.localeCompare(b.date))
         : [];
       const startDateObj = new Date(settings.startDate);
-      let currentSeed = settings.currentInvestment;
+
+      // currentInvestment가 없거나 0인 경우 기본값으로 대체
+      let currentSeed =
+        settings.currentInvestment || settings.initialInvestment || 75000;
+      console.log(
+        `시드 초기화: ${currentSeed} (설정값: ${settings.currentInvestment}, 초기투자금: ${settings.initialInvestment})`
+      );
+
       let tradeIndex =
         (initialTrades.length > 0
           ? initialTrades[initialTrades.length - 1]?.tradeIndex || 0

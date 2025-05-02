@@ -166,6 +166,15 @@ const MainPage: React.FC = () => {
           }
         } else {
           const loadedSettings = data.settings as AppSettings;
+
+          // currentInvestment가 없거나 0인 경우 initialInvestment 값으로 설정
+          if (!loadedSettings.currentInvestment) {
+            console.log(
+              "currentInvestment가 설정되지 않아 initialInvestment 값으로 초기화합니다."
+            );
+            loadedSettings.currentInvestment = loadedSettings.initialInvestment;
+          }
+
           setSettings(loadedSettings);
           if (!originalSettings) {
             setOriginalSettings(loadedSettings);
@@ -194,7 +203,10 @@ const MainPage: React.FC = () => {
         .single();
 
       if (error) {
-        console.error(`Error fetching ${settings?.selectedTicker || "SOXL"} prices:`, error);
+        console.error(
+          `Error fetching ${settings?.selectedTicker || "SOXL"} prices:`,
+          error
+        );
         return;
       }
 
@@ -317,7 +329,7 @@ const MainPage: React.FC = () => {
         updatedSettings.currentInvestment =
           typeof value === "number" ? value : +value;
       }
-      
+
       // selectedTicker 변경 시 해당 종목에 맞는 매수/매도 퍼센트로 자동 변경
       if (field === "selectedTicker") {
         if (value === "TQQQ") {
@@ -328,7 +340,7 @@ const MainPage: React.FC = () => {
           updatedSettings.aggressiveBuyPercent = 5;
         }
       }
-      
+
       return updatedSettings;
     });
   };

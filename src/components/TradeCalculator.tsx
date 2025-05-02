@@ -9,6 +9,7 @@ interface Settings {
   aggressiveBuyPercent: number;
   seedDivision: number;
   currentInvestment: number;
+  initialInvestment: number;
 }
 
 interface Trade {
@@ -131,6 +132,16 @@ const TradeCalculator: React.FC<TradeCalculatorProps> = ({
   const [latestSeed, setLatestSeed] = useState<number>(
     settings.currentInvestment || initialInvestment
   );
+
+  useEffect(() => {
+    // initialInvestment 값이 변경되면 latestSeed를 재설정 (currentInvestment가 없는 경우)
+    if (!settings.currentInvestment && initialInvestment > 0) {
+      console.log(
+        `currentInvestment가 없어 initialInvestment(${initialInvestment})로 시드 설정`
+      );
+      setLatestSeed(initialInvestment);
+    }
+  }, [initialInvestment, settings.currentInvestment]);
 
   // 화면 크기 감지
   useEffect(() => {
