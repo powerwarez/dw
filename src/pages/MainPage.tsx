@@ -358,11 +358,19 @@ const MainPage: React.FC = () => {
     try {
       // 모든 데이터를 초기화합니다
       const emptyTradeHistory: Trade[] = [];
+      // startDate와 initialInvestment 값을 이용해 updatedSeed 배열 생성
+      const initialSeed = [
+        {
+          date: settings?.startDate,
+          value: Number(settings?.initialInvestment),
+        },
+      ];
+
       await supabase.from("dynamicwave").upsert({
         user_id: localSession.user.id,
         settings,
         tradehistory: emptyTradeHistory,
-        updatedSeed: [],
+        updatedSeed: initialSeed,
         manualFixInfo: {},
       });
       setTradeHistory(emptyTradeHistory);
