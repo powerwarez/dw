@@ -70,7 +70,7 @@ const MainPage: React.FC = () => {
   );
   const [closingPrices, setClosingPrices] = useState<PriceEntry[]>([]);
   const [tradeHistory, setTradeHistory] = useState<Trade[]>([]);
-  const [mode] = useState<"safe" | "aggressive">("safe");
+  const [mode, setMode] = useState<"safe" | "aggressive">("safe");
   const [previousClosePrice, setPreviousClosePrice] = useState<number>(0);
   const [yesterdaySell, setYesterdaySell] = useState<Trade | undefined>(
     undefined
@@ -261,6 +261,8 @@ const MainPage: React.FC = () => {
           if (diffDays <= 10) {
             console.log("DB의 최신 mode 데이터를 사용합니다:", dbMode);
             setModes([dbMode]);
+            // 모드 상태 업데이트
+            setMode(dbMode.mode);
             return;
           }
         }
@@ -289,6 +291,14 @@ const MainPage: React.FC = () => {
           const data: ApiResponse = JSON.parse(text);
           console.log("API data:", data);
           setModes(data.mode);
+
+          // API에서 가져온 최신 모드로 상태 업데이트
+          if (data.mode && data.mode.length > 0) {
+            const latestMode = data.mode[data.mode.length - 1].mode;
+            console.log("최신 모드로 상태 업데이트:", latestMode);
+            setMode(latestMode);
+          }
+
           break;
         } catch (error) {
           console.error("API를 통해 mode 데이터를 가져오는 중 오류:", error);
@@ -482,8 +492,6 @@ const MainPage: React.FC = () => {
     setSeedUpdateTrigger((prev) => prev + 1);
   };
 
-  const lastMode = modes.length > 0 ? modes[modes.length - 1].mode : "safe";
-
   // 렌더링 시작 전 인증 상태 체크 (인증 로딩 중이면 로딩 화면 표시)
   if (authLoading) {
     return (
@@ -565,10 +573,10 @@ const MainPage: React.FC = () => {
             <h3 className="text-lg mb-2">이번주 모드</h3>
             <div
               className={`text-4xl font-bold rounded ${
-                lastMode === "safe" ? "text-yellow-400" : "text-red-400"
+                mode === "safe" ? "text-yellow-400" : "text-red-400"
               }`}
             >
-              {lastMode === "safe" ? "안전 모드" : "공세 모드"}
+              {mode === "safe" ? "안전 모드" : "공세 모드"}
             </div>
           </div>
 
